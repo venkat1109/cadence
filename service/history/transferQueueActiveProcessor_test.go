@@ -23,6 +23,7 @@ package history
 import (
 	"os"
 	"testing"
+	"time"
 
 	"github.com/pborman/uuid"
 	log "github.com/sirupsen/logrus"
@@ -136,6 +137,7 @@ func (s *transferQueueActiveProcessorSuite) SetupTest() {
 		logger:                    s.logger,
 		domainCache:               cache.NewDomainCache(s.mockMetadataMgr, s.mockClusterMetadata, metricsClient, s.logger),
 		metricsClient:             metrics.NewClient(tally.NoopScope, metrics.History),
+		timerMaxReadLevelMap:      make(map[string]time.Time),
 	}
 
 	historyCache := newHistoryCache(s.mockShard, s.logger)

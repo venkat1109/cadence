@@ -1289,6 +1289,7 @@ func (s *historyReplicatorSuite) TestReplicateWorkflowStarted_BrandNew() {
 		return true
 	})).Return(&persistence.CreateWorkflowExecutionResponse{}, nil).Once()
 
+	s.mockClusterMetadata.On("ClusterNameForFailoverVersion", version).Return(cluster.TestCurrentClusterName)
 	err := s.historyReplicator.replicateWorkflowStarted(ctx.Background(), context, msBuilder, di, sourceCluster, history, sBuilder, s.logger)
 	s.Nil(err)
 	s.Equal(1, len(transferTasks))
@@ -1372,6 +1373,7 @@ func (s *historyReplicatorSuite) TestReplicateWorkflowStarted_ISE() {
 	errRet := &shared.InternalServiceError{}
 	// the test above already assert the create workflow request, so here jsut use anyting
 	s.mockExecutionMgr.On("CreateWorkflowExecution", mock.Anything).Return(nil, errRet).Once()
+	s.mockClusterMetadata.On("ClusterNameForFailoverVersion", version).Return(cluster.TestCurrentClusterName)
 
 	err := s.historyReplicator.replicateWorkflowStarted(ctx.Background(), context, msBuilder, di, sourceCluster, history,
 		sBuilder, s.logger)
@@ -1461,6 +1463,7 @@ func (s *historyReplicatorSuite) TestReplicateWorkflowStarted_SameRunID() {
 	}
 	// the test above already assert the create workflow request, so here jsut use anyting
 	s.mockExecutionMgr.On("CreateWorkflowExecution", mock.Anything).Return(nil, errRet).Once()
+	s.mockClusterMetadata.On("ClusterNameForFailoverVersion", version).Return(cluster.TestCurrentClusterName)
 
 	err := s.historyReplicator.replicateWorkflowStarted(ctx.Background(), context, msBuilder, di, sourceCluster, history,
 		sBuilder, s.logger)
@@ -1552,6 +1555,7 @@ func (s *historyReplicatorSuite) TestReplicateWorkflowStarted_CurrentComplete_In
 	s.mockExecutionMgr.On("CreateWorkflowExecution", mock.Anything).Return(nil, errRet).Once()
 	s.mockHistoryMgr.On("DeleteWorkflowExecutionHistory", mock.Anything).Return(nil).Once()
 
+	s.mockClusterMetadata.On("ClusterNameForFailoverVersion", version).Return(cluster.TestCurrentClusterName)
 	err := s.historyReplicator.replicateWorkflowStarted(ctx.Background(), context, msBuilder, di, sourceCluster, history,
 		sBuilder, s.logger)
 	s.Nil(err)
@@ -1705,6 +1709,7 @@ func (s *historyReplicatorSuite) TestReplicateWorkflowStarted_CurrentComplete_In
 		}, input)
 	})).Return(&persistence.CreateWorkflowExecutionResponse{}, nil).Once()
 
+	s.mockClusterMetadata.On("ClusterNameForFailoverVersion", version).Return(cluster.TestCurrentClusterName)
 	err := s.historyReplicator.replicateWorkflowStarted(ctx.Background(), context, msBuilder, di, sourceCluster, history,
 		sBuilder, s.logger)
 	s.Nil(err)
@@ -1859,6 +1864,7 @@ func (s *historyReplicatorSuite) TestReplicateWorkflowStarted_CurrentComplete_In
 		}, input)
 	})).Return(&persistence.CreateWorkflowExecutionResponse{}, nil).Once()
 
+	s.mockClusterMetadata.On("ClusterNameForFailoverVersion", version).Return(cluster.TestCurrentClusterName)
 	err := s.historyReplicator.replicateWorkflowStarted(ctx.Background(), context, msBuilder, di, sourceCluster, history,
 		sBuilder, s.logger)
 	s.Nil(err)
@@ -1949,6 +1955,7 @@ func (s *historyReplicatorSuite) TestReplicateWorkflowStarted_CurrentRunning_Inc
 	// the test above already assert the create workflow request, so here jsut use anyting
 	s.mockExecutionMgr.On("CreateWorkflowExecution", mock.Anything).Return(nil, errRet).Once()
 	s.mockHistoryMgr.On("DeleteWorkflowExecutionHistory", mock.Anything).Return(nil).Once()
+	s.mockClusterMetadata.On("ClusterNameForFailoverVersion", version).Return(cluster.TestCurrentClusterName)
 
 	err := s.historyReplicator.replicateWorkflowStarted(ctx.Background(), context, msBuilder, di, sourceCluster, history,
 		sBuilder, s.logger)
@@ -2059,6 +2066,7 @@ func (s *historyReplicatorSuite) TestReplicateWorkflowStarted_CurrentRunning_Inc
 		// other attributes are not used
 	}, nil)
 
+	s.mockClusterMetadata.On("ClusterNameForFailoverVersion", version).Return(cluster.TestCurrentClusterName)
 	err := s.historyReplicator.replicateWorkflowStarted(ctx.Background(), context, msBuilder, di, sourceCluster, history,
 		sBuilder, s.logger)
 	s.Equal(ErrRetryExistingWorkflow, err)
@@ -2224,6 +2232,7 @@ func (s *historyReplicatorSuite) TestReplicateWorkflowStarted_CurrentRunning_Inc
 	currentContext.msBuilder = currentMsBuilder
 	currentRelease(nil)
 
+	s.mockClusterMetadata.On("ClusterNameForFailoverVersion", version).Return(cluster.TestCurrentClusterName)
 	err = s.historyReplicator.replicateWorkflowStarted(ctx.Background(), context, msBuilder, di, sourceCluster, history,
 		sBuilder, s.logger)
 	s.Nil(err)
