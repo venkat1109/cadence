@@ -61,7 +61,7 @@ func TestTimerQueueProcessorSuite(t *testing.T) {
 	suite.Run(t, s)
 }
 
-func (s *timerQueueProcessorSuite) SetupSuite() {
+func (s *timerQueueProcessorSuite) SetupTest() {
 	if testing.Verbose() {
 		log.SetOutput(os.Stdout)
 	}
@@ -104,13 +104,9 @@ func (s *timerQueueProcessorSuite) SetupSuite() {
 	)
 }
 
-func (s *timerQueueProcessorSuite) TearDownSuite() {
+func (s *timerQueueProcessorSuite) TearDownTest() {
 	s.TeardownDomains()
 	s.TearDownWorkflowStore()
-}
-
-func (s *timerQueueProcessorSuite) TearDownTest() {
-
 }
 
 func (s *timerQueueProcessorSuite) updateTimerSeqNumbers(timerTasks []persistence.Task) {
@@ -288,19 +284,9 @@ func (s *timerQueueProcessorSuite) TestSingleTimerTask() {
 	processor.Start()
 	processor.NotifyNewTimers(cluster.TestCurrentClusterName, s.ShardContext.GetCurrentTime(cluster.TestCurrentClusterName), tt)
 
-	for {
-		timerInfo, err := s.GetTimerIndexTasks(100, true)
-		s.Nil(err, "No error expected.")
-		if len(timerInfo) == 0 {
-			processor.Stop()
-			break
-		}
-		time.Sleep(10 * time.Millisecond)
-	}
-
-	timerInfo, err = s.GetTimerIndexTasks(100, true)
-	s.Nil(err, "No error expected.")
-	s.Equal(0, len(timerInfo))
+	expectedFireCount := uint64(1)
+	s.waitForTimerTasksToProcess(processor, expectedFireCount)
+	s.Equal(expectedFireCount, processor.getTimerFiredCount(cluster.TestCurrentClusterName))
 }
 
 func (s *timerQueueProcessorSuite) TestManyTimerTasks() {
@@ -321,22 +307,9 @@ func (s *timerQueueProcessorSuite) TestManyTimerTasks() {
 	processor.Start()
 	processor.NotifyNewTimers(cluster.TestCurrentClusterName, s.ShardContext.GetCurrentTime(cluster.TestCurrentClusterName), tt)
 
-	for {
-		timerInfo, err := s.GetTimerIndexTasks(100, true)
-		s.logger.Infof("TestManyTimerTasks: GetTimerIndexTasks: Response Count: %d \n", len(timerInfo))
-		s.Nil(err, "No error expected.")
-		if len(timerInfo) == 0 {
-			processor.Stop()
-			break
-		}
-		time.Sleep(1000 * time.Millisecond)
-	}
-
-	timerInfo, err = s.GetTimerIndexTasks(100, true)
-	s.Nil(err, "No error expected.")
-	s.Equal(0, len(timerInfo))
-
-	s.Equal(uint64(3), processor.getTimerFiredCount(cluster.TestCurrentClusterName))
+	expectedFireCount := uint64(3)
+	s.waitForTimerTasksToProcess(processor, expectedFireCount)
+	s.Equal(expectedFireCount, processor.getTimerFiredCount(cluster.TestCurrentClusterName))
 }
 
 func (s *timerQueueProcessorSuite) TestTimerTaskAfterProcessorStart() {
@@ -360,20 +333,15 @@ func (s *timerQueueProcessorSuite) TestTimerTaskAfterProcessorStart() {
 	tt := s.addDecisionTimer(domainID, workflowExecution, tBuilder)
 	processor.NotifyNewTimers(cluster.TestCurrentClusterName, s.ShardContext.GetCurrentTime(cluster.TestCurrentClusterName), tt)
 
-	s.waitForTimerTasksToProcess(processor)
-
-	timerInfo, err = s.GetTimerIndexTasks(100, true)
-	s.Nil(err, "No error expected.")
-	s.Equal(0, len(timerInfo))
-
-	s.Equal(uint64(1), processor.getTimerFiredCount(cluster.TestCurrentClusterName))
+	expectedFireCount := uint64(1)
+	s.waitForTimerTasksToProcess(processor, expectedFireCount)
+	s.Equal(expectedFireCount, processor.getTimerFiredCount(cluster.TestCurrentClusterName))
 }
 
-func (s *timerQueueProcessorSuite) waitForTimerTasksToProcess(p timerQueueProcessor) {
-	for {
-		timerInfo, err := s.GetTimerIndexTasks(100, true)
-		s.Nil(err, "No error expected.")
-		if len(timerInfo) == 0 {
+func (s *timerQueueProcessorSuite) waitForTimerTasksToProcess(p *timerQueueProcessorImpl, expectedFireCount uint64) {
+	// retry for 20 seconds
+	for i := 0; i < 20; i++ {
+		if expectedFireCount == p.getTimerFiredCount(cluster.TestCurrentClusterName) {
 			break
 		}
 		time.Sleep(1000 * time.Millisecond)
@@ -459,8 +427,9 @@ func (s *timerQueueProcessorSuite) TestTimerActivityTaskScheduleToStart_WithOutS
 	s.updateHistoryAndTimers(builder, timerTasks, condition)
 	processor.NotifyNewTimers(cluster.TestCurrentClusterName, s.ShardContext.GetCurrentTime(cluster.TestCurrentClusterName), timerTasks)
 
-	s.waitForTimerTasksToProcess(processor)
-	s.Equal(uint64(1), processor.getTimerFiredCount(cluster.TestCurrentClusterName))
+	expectedFireCount := uint64(1)
+	s.waitForTimerTasksToProcess(processor, expectedFireCount)
+	s.Equal(expectedFireCount, processor.getTimerFiredCount(cluster.TestCurrentClusterName))
 	running := s.checkTimedOutEventFor(domainID, workflowExecution, *activityScheduledEvent.EventId)
 	s.False(running)
 }
@@ -503,8 +472,9 @@ func (s *timerQueueProcessorSuite) TestTimerActivityTaskScheduleToStart_WithStar
 	s.updateHistoryAndTimers(builder, timerTasks, condition)
 	p.NotifyNewTimers(cluster.TestCurrentClusterName, s.ShardContext.GetCurrentTime(cluster.TestCurrentClusterName), timerTasks)
 
-	s.waitForTimerTasksToProcess(p)
-	s.Equal(uint64(1), p.getTimerFiredCount(cluster.TestCurrentClusterName))
+	expectedFireCount := uint64(1)
+	s.waitForTimerTasksToProcess(p, expectedFireCount)
+	s.Equal(expectedFireCount, p.getTimerFiredCount(cluster.TestCurrentClusterName))
 	running := s.checkTimedOutEventFor(domainID, workflowExecution, *ase.EventId)
 	s.False(running)
 }
@@ -547,8 +517,9 @@ func (s *timerQueueProcessorSuite) TestTimerActivityTaskScheduleToStart_MoreThan
 	s.updateHistoryAndTimers(builder, timerTasks, condition)
 	processor.NotifyNewTimers(cluster.TestCurrentClusterName, s.ShardContext.GetCurrentTime(cluster.TestCurrentClusterName), timerTasks)
 
-	s.waitForTimerTasksToProcess(processor)
-	s.Equal(uint64(1), processor.getTimerFiredCount(cluster.TestCurrentClusterName))
+	expectedFireCount := uint64(1)
+	s.waitForTimerTasksToProcess(processor, expectedFireCount)
+	s.Equal(expectedFireCount, processor.getTimerFiredCount(cluster.TestCurrentClusterName))
 	running := s.checkTimedOutEventFor(domainID, workflowExecution, *activityScheduledEvent.EventId)
 	s.False(running)
 }
@@ -590,8 +561,9 @@ func (s *timerQueueProcessorSuite) TestTimerActivityTaskStartToClose_WithStart()
 	s.updateHistoryAndTimers(builder, timerTasks, condition)
 	p.NotifyNewTimers(cluster.TestCurrentClusterName, s.ShardContext.GetCurrentTime(cluster.TestCurrentClusterName), timerTasks)
 
-	s.waitForTimerTasksToProcess(p)
-	s.Equal(uint64(1), p.getTimerFiredCount(cluster.TestCurrentClusterName))
+	expectedFireCount := uint64(1)
+	s.waitForTimerTasksToProcess(p, expectedFireCount)
+	s.Equal(expectedFireCount, p.getTimerFiredCount(cluster.TestCurrentClusterName))
 	running := s.checkTimedOutEventFor(domainID, workflowExecution, *ase.EventId)
 	s.False(running)
 }
@@ -637,8 +609,9 @@ func (s *timerQueueProcessorSuite) TestTimerActivityTaskStartToClose_CompletedAc
 	s.updateHistoryAndTimers(builder, timerTasks, condition)
 	p.NotifyNewTimers(cluster.TestCurrentClusterName, s.ShardContext.GetCurrentTime(cluster.TestCurrentClusterName), timerTasks)
 
-	s.waitForTimerTasksToProcess(p)
-	s.Equal(uint64(1), p.getTimerFiredCount(cluster.TestCurrentClusterName))
+	expectedFireCount := uint64(1)
+	s.waitForTimerTasksToProcess(p, expectedFireCount)
+	s.Equal(expectedFireCount, p.getTimerFiredCount(cluster.TestCurrentClusterName))
 	running := s.checkTimedOutEventFor(domainID, workflowExecution, *ase.EventId)
 	s.False(running)
 }
@@ -679,8 +652,9 @@ func (s *timerQueueProcessorSuite) TestTimerActivityTaskScheduleToClose_JustSche
 	s.updateHistoryAndTimers(builder, timerTasks, condition)
 	p.NotifyNewTimers(cluster.TestCurrentClusterName, s.ShardContext.GetCurrentTime(cluster.TestCurrentClusterName), timerTasks)
 
-	s.waitForTimerTasksToProcess(p)
-	s.Equal(uint64(1), p.getTimerFiredCount(cluster.TestCurrentClusterName))
+	expectedFireCount := uint64(1)
+	s.waitForTimerTasksToProcess(p, expectedFireCount)
+	s.Equal(expectedFireCount, p.getTimerFiredCount(cluster.TestCurrentClusterName))
 	running := s.checkTimedOutEventFor(domainID, workflowExecution, *ase.EventId)
 	s.False(running)
 }
@@ -723,8 +697,9 @@ func (s *timerQueueProcessorSuite) TestTimerActivityTaskScheduleToClose_Started(
 	s.updateHistoryAndTimers(builder, timerTasks, condition)
 	p.NotifyNewTimers(cluster.TestCurrentClusterName, s.ShardContext.GetCurrentTime(cluster.TestCurrentClusterName), timerTasks)
 
-	s.waitForTimerTasksToProcess(p)
-	s.Equal(uint64(1), p.getTimerFiredCount(cluster.TestCurrentClusterName))
+	expectedFireCount := uint64(1)
+	s.waitForTimerTasksToProcess(p, expectedFireCount)
+	s.Equal(expectedFireCount, p.getTimerFiredCount(cluster.TestCurrentClusterName))
 	running := s.checkTimedOutEventFor(domainID, workflowExecution, *ase.EventId)
 	s.False(running)
 }
@@ -771,8 +746,9 @@ func (s *timerQueueProcessorSuite) TestTimerActivityTaskScheduleToClose_Complete
 	s.updateHistoryAndTimers(builder, timerTasks, condition)
 	p.NotifyNewTimers(cluster.TestCurrentClusterName, s.ShardContext.GetCurrentTime(cluster.TestCurrentClusterName), timerTasks)
 
-	s.waitForTimerTasksToProcess(p)
-	s.Equal(uint64(1), p.getTimerFiredCount(cluster.TestCurrentClusterName))
+	expectedFireCount := uint64(1)
+	s.waitForTimerTasksToProcess(p, expectedFireCount)
+	s.Equal(expectedFireCount, p.getTimerFiredCount(cluster.TestCurrentClusterName))
 	running := s.checkTimedOutEventFor(domainID, workflowExecution, *ase.EventId)
 	s.False(running)
 }
@@ -794,8 +770,9 @@ func (s *timerQueueProcessorSuite) TestTimerActivityTaskHeartBeat_JustStarted() 
 	ase, timerTasks := s.addHeartBeatTimer(domainID, workflowExecution, tBuilder)
 
 	p.NotifyNewTimers(cluster.TestCurrentClusterName, s.ShardContext.GetCurrentTime(cluster.TestCurrentClusterName), timerTasks)
-	s.waitForTimerTasksToProcess(p)
-	s.Equal(uint64(1), p.getTimerFiredCount(cluster.TestCurrentClusterName))
+	expectedFireCount := uint64(1)
+	s.waitForTimerTasksToProcess(p, expectedFireCount)
+	s.Equal(expectedFireCount, p.getTimerFiredCount(cluster.TestCurrentClusterName))
 	running := s.checkTimedOutEventFor(domainID, workflowExecution, *ase.EventId)
 	s.False(running)
 }
@@ -850,8 +827,9 @@ func (s *timerQueueProcessorSuite) TestTimerActivityTask_SameExpiry() {
 	s.updateHistoryAndTimers(builder, timerTasks, condition)
 	p.NotifyNewTimers(cluster.TestCurrentClusterName, s.ShardContext.GetCurrentTime(cluster.TestCurrentClusterName), timerTasks)
 
-	s.waitForTimerTasksToProcess(p)
-	s.Equal(uint64(1), p.getTimerFiredCount(cluster.TestCurrentClusterName))
+	expectedFireCount := uint64(1)
+	s.waitForTimerTasksToProcess(p, expectedFireCount)
+	s.Equal(expectedFireCount, p.getTimerFiredCount(cluster.TestCurrentClusterName))
 	running := s.checkTimedOutEventFor(domainID, workflowExecution, *ase1.EventId)
 	s.False(running)
 	running = s.checkTimedOutEventFor(domainID, workflowExecution, *ase2.EventId)
@@ -881,8 +859,9 @@ func (s *timerQueueProcessorSuite) TestTimerUserTimers() {
 	timerID := "tid1"
 	timerTasks := s.addUserTimer(domainID, workflowExecution, timerID, tBuilder)
 	p.NotifyNewTimers(cluster.TestCurrentClusterName, s.ShardContext.GetCurrentTime(cluster.TestCurrentClusterName), timerTasks)
-	s.waitForTimerTasksToProcess(p)
-	s.Equal(uint64(1), p.getTimerFiredCount(cluster.TestCurrentClusterName))
+	expectedFireCount := uint64(1)
+	s.waitForTimerTasksToProcess(p, expectedFireCount)
+	s.Equal(expectedFireCount, p.getTimerFiredCount(cluster.TestCurrentClusterName))
 	running := s.checkTimedOutEventForUserTimer(domainID, workflowExecution, timerID)
 	s.False(running)
 }
@@ -923,8 +902,9 @@ func (s *timerQueueProcessorSuite) TestTimerUserTimers_SameExpiry() {
 	s.updateHistoryAndTimers(builder, timerTasks, condition)
 	p.NotifyNewTimers(cluster.TestCurrentClusterName, s.ShardContext.GetCurrentTime(cluster.TestCurrentClusterName), timerTasks)
 
-	s.waitForTimerTasksToProcess(p)
-	s.Equal(uint64(len(timerTasks)), p.getTimerFiredCount(cluster.TestCurrentClusterName))
+	expectedFireCount := uint64(len(timerTasks))
+	s.waitForTimerTasksToProcess(p, expectedFireCount)
+	s.Equal(expectedFireCount, p.getTimerFiredCount(cluster.TestCurrentClusterName))
 	running := s.checkTimedOutEventForUserTimer(domainID, workflowExecution, ti.TimerID)
 	s.False(running)
 	running = s.checkTimedOutEventForUserTimer(domainID, workflowExecution, ti2.TimerID)
@@ -964,8 +944,9 @@ func (s *timerQueueProcessorSuite) TestTimersOnClosedWorkflow() {
 	s.closeWorkflow(domainID, workflowExecution)
 
 	p.NotifyNewTimers(cluster.TestCurrentClusterName, s.ShardContext.GetCurrentTime(cluster.TestCurrentClusterName), tt)
-	s.waitForTimerTasksToProcess(p)
-	s.Equal(uint64(3), p.getTimerFiredCount(cluster.TestCurrentClusterName))
+	expectedFireCount := uint64(3)
+	s.waitForTimerTasksToProcess(p, expectedFireCount)
+	s.Equal(expectedFireCount, p.getTimerFiredCount(cluster.TestCurrentClusterName))
 
 	// Verify that no new events are added to workflow.
 	state1, err := s.GetWorkflowExecutionInfo(domainID, workflowExecution)
