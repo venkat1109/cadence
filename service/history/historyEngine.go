@@ -1307,13 +1307,6 @@ Update_History_Loop:
 					return nil, err
 				}
 
-				// add timer task to new workflow
-				duration := time.Duration(*attributes.ExecutionStartToCloseTimeoutSeconds) * time.Second
-				continueAsNewTimerTasks = []persistence.Task{&persistence.WorkflowTimeoutTask{
-					VisibilityTimestamp: e.shard.GetTimeSource().Now().Add(duration),
-				}}
-				msBuilder.GetContinueAsNew().TimerTasks = continueAsNewTimerTasks
-
 				isComplete = true
 				continueAsNewBuilder = newStateBuilder
 
@@ -1428,6 +1421,7 @@ Update_History_Loop:
 		// the history and try the operation again.
 		var updateErr error
 		if continueAsNewBuilder != nil {
+			continueAsNewTimerTasks = msBuilder.GetContinueAsNew().TimerTasks
 			updateErr = context.continueAsNewWorkflowExecution(request.ExecutionContext, continueAsNewBuilder,
 				transferTasks, timerTasks, transactionID)
 		} else {

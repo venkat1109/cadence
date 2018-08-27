@@ -2336,11 +2336,18 @@ func (e *mutableStateBuilder) ReplicateWorkflowExecutionContinuedAsNewEvent(sour
 		TaskList:   newExecutionInfo.TaskList,
 		ScheduleID: di.ScheduleID,
 	}}
+
+	now := time.Unix(0, startedEvent.GetTimestamp())
+	duration := time.Duration(*continueAsNewAttributes.ExecutionStartToCloseTimeoutSeconds) * time.Second
+	newTimerTasks := []persistence.Task{&persistence.WorkflowTimeoutTask{
+		VisibilityTimestamp: now.Add(duration),
+	}}
+
 	setTaskInfo(
 		newStateBuilder.GetCurrentVersion(),
-		time.Unix(0, startedEvent.GetTimestamp()),
+		now,
 		newTransferTasks,
-		nil,
+		newTimerTasks,
 	)
 
 	e.continueAsNew = &persistence.CreateWorkflowExecutionRequest{
@@ -2360,6 +2367,7 @@ func (e *mutableStateBuilder) ReplicateWorkflowExecutionContinuedAsNewEvent(sour
 		NextEventID:                 newStateBuilder.GetNextEventID(),
 		LastProcessedEvent:          common.EmptyEventID,
 		TransferTasks:               newTransferTasks,
+		TimerTasks:                  newTimerTasks,
 		DecisionVersion:             di.Version,
 		DecisionScheduleID:          di.ScheduleID,
 		DecisionStartedID:           di.StartedID,

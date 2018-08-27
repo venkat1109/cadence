@@ -388,6 +388,11 @@ func (b *stateBuilderImpl) applyEvents(domainID, requestID string, execution sha
 
 			b.msBuilder.ReplicateWorkflowExecutionContinuedAsNewEvent(sourceClusterName, domainID, event,
 				startedEvent, di, newRunStateBuilder)
+
+			// TODO the continue as new logic (task generation) is broken (including the active / existing code)
+			// we should merge all task generation & persistence into one place
+			// BTW, the newRunTransferTasks and newRunTimerTasks are not used
+
 			b.transferTasks = append(b.transferTasks, b.scheduleDeleteHistoryTransferTask())
 			timerTask, err := b.scheduleDeleteHistoryTimerTask(event, domainID)
 			if err != nil {
