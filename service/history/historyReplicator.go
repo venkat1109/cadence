@@ -22,7 +22,6 @@ package history
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"github.com/pborman/uuid"
@@ -32,13 +31,14 @@ import (
 	"github.com/uber/cadence/common"
 	"github.com/uber/cadence/common/cache"
 	"github.com/uber/cadence/common/cluster"
+	"github.com/uber/cadence/common/errors"
 	"github.com/uber/cadence/common/logging"
 	"github.com/uber/cadence/common/metrics"
 	"github.com/uber/cadence/common/persistence"
 )
 
 var (
-	errNoHistoryFound = errors.New("no history events found")
+	errNoHistoryFound = errors.NewInternalFailureError("no history events found")
 
 	workflowTerminationReason   = "Terminate Workflow Due To Version Conflict."
 	workflowTerminationIdentity = "worker-service"
@@ -87,6 +87,8 @@ var (
 	ErrImpossibleLocalRemoteMissingReplicationInfo = &shared.BadRequestError{Message: "local and remote both are missing replication info"}
 	// ErrImpossibleRemoteClaimSeenHigherVersion is returned when replication info contains higher version then this cluster ever emitted.
 	ErrImpossibleRemoteClaimSeenHigherVersion = &shared.BadRequestError{Message: "replication info contains higher version then this cluster ever emitted"}
+	// ErrInternalFailure is returned when encounter code bug
+	ErrInternalFailure = &shared.BadRequestError{Message: "fail to apply history events due bug"}
 )
 
 func newHistoryReplicator(shard ShardContext, historyEngine *historyEngineImpl, historyCache *historyCache, domainCache cache.DomainCache,
@@ -149,6 +151,9 @@ func (r *historyReplicator) ApplyEvents(ctx context.Context, request *h.Replicat
 			case *persistence.WorkflowExecutionAlreadyStartedError:
 				logger.Debugf("Encounter WorkflowExecutionAlreadyStartedError: %v", retError)
 				retError = ErrRetryExecutionAlreadyStarted
+			case *errors.InternalFailureError:
+				r.logError(logger, "Encounter InternalFailure.", retError)
+				retError = ErrInternalFailure
 			}
 		}
 	}()
@@ -398,7 +403,7 @@ func (r *historyReplicator) ApplyOtherEvents(ctx context.Context, context *workf
 		err = msBuilder.BufferReplicationTask(request)
 		if err != nil {
 			r.logError(logger, "Failed to buffer out of order replication task.", err)
-			return errors.New("failed to add buffered replication task")
+			return err
 		}
 		return r.updateBufferedReplicationTask(context, msBuilder)
 	}
