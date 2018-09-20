@@ -174,6 +174,12 @@ func (t *timerQueueStandbyProcessorImpl) process(timerTask *persistence.TimerTas
 			t.timerQueueAckMgr.completeTimerTask(timerTask)
 			err = nil
 		}
+		if err == ErrTaskDiscarded {
+			t.timerQueueAckMgr.completeTimerTask(timerTask)
+			t.metricsClient.IncCounter(scope, metrics.TaskDiscarded)
+			err = nil
+		}
+
 		if err != nil {
 			t.metricsClient.IncCounter(scope, metrics.TaskFailures)
 		}
@@ -218,6 +224,11 @@ func (t *timerQueueStandbyProcessorImpl) processExpiredUserTimer(timerTask *pers
 				//
 				// we do not need to notity new timer to base, since if there is no new event being replicated
 				// checking again if the timer can be completed is meaningless
+
+				if t.discardTask(timerTask) {
+					return ErrTaskDiscarded
+				}
+
 				return ErrTaskRetry
 			}
 			// since the user timer are already sorted, so if there is one timer which will not expired
@@ -259,6 +270,11 @@ func (t *timerQueueStandbyProcessorImpl) processActivityTimeout(timerTask *persi
 				//
 				// we do not need to notity new timer to base, since if there is no new event being replicated
 				// checking again if the timer can be completed is meaningless
+
+				if t.discardTask(timerTask) {
+					return ErrTaskDiscarded
+				}
+
 				return ErrTaskRetry
 			}
 			// since the activity timer are already sorted, so if there is one timer which will not expired
@@ -295,6 +311,11 @@ func (t *timerQueueStandbyProcessorImpl) processDecisionTimeout(timerTask *persi
 		//
 		// we do not need to notity new timer to base, since if there is no new event being replicated
 		// checking again if the timer can be completed is meaningless
+
+		if t.discardTask(timerTask) {
+			return ErrTaskDiscarded
+		}
+
 		return ErrTaskRetry
 	})
 }
@@ -313,6 +334,10 @@ func (t *timerQueueStandbyProcessorImpl) processWorkflowTimeout(timerTask *persi
 			return err
 		} else if !ok {
 			return nil
+		}
+
+		if t.discardTask(timerTask) {
+			return ErrTaskDiscarded
 		}
 
 		return ErrTaskRetry
@@ -345,5 +370,23 @@ func (t *timerQueueStandbyProcessorImpl) processTimer(timerTask *persistence.Tim
 	}
 
 	return fn(msBuilder)
+}
 
+func (t *timerQueueStandbyProcessorImpl) discardTask(timerTask *persistence.TimerTaskInfo) bool {
+	// the current time got from shard is already delayed by t.shard.GetConfig().StandbyClusterDelay()
+	// so discard will be true if task is delayed by 2*t.shard.GetConfig().StandbyClusterDelay()
+	now := t.shard.GetCurrentTime(t.clusterName)
+	discard := now.Sub(timerTask.GetVisibilityTimestamp()) > t.shard.GetConfig().StandbyClusterDelay()
+	if discard {
+		t.logger.WithFields(bark.Fields{
+			logging.TagTaskID:              timerTask.GetTaskID(),
+			logging.TagTaskType:            timerTask.GetTaskType(),
+			logging.TagVersion:             timerTask.GetVersion(),
+			logging.TagTimeoutType:         timerTask.TimeoutType,
+			logging.TagDomainID:            timerTask.DomainID,
+			logging.TagWorkflowExecutionID: timerTask.WorkflowID,
+			logging.TagWorkflowRunID:       timerTask.RunID,
+		}).Error("Discarding standby timer task due to task being pending for too long.")
+	}
+	return discard
 }
