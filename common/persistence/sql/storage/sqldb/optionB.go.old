@@ -1,0 +1,170 @@
+// Copyright (c) 2017 Uber Technologies, Inc.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+// THE SOFTWARE.
+
+package sqldb
+
+import "github.com/jmoiron/sqlx"
+
+type (
+	DomainTable interface {
+		InsertTx(tx *sqlx.Tx, rows []DomainRow) error
+		UpdateTx(tx *sqlx.Tx, row DomainRow) error
+		DeleteTx(tx *sqlx.Tx, filter QueryFilter) error
+		Select(filter QueryFilter) ([]DomainRow, error)
+	}
+
+	DomainMetadataTable interface {
+		Select() (DomainMetadataRow, error)
+		Lock() error
+	}
+
+	ShardsTable interface {
+		Insert(rows []ShardsRow) error
+		Update(row ShardsRow) error
+		Select(filter QueryFilter) (ShardsRow, error)
+		ReadLock(filter QueryFilter) error
+		WriteLock(filter QueryFilter) error
+	}
+
+	TransferTasksTable interface {
+		Insert(rows []TransferTasksRow) error
+		Select(filter QueryFilter) ([]TransferTasksRow, error)
+		Delete(filter QueryFilter) error
+	}
+
+	ExecutionsTable interface {
+		Insert(row ExecutionsRow) error
+		Update(row ExecutionsRow) error
+		Select(filter QueryFilter) (ExecutionsRow, error)
+		Delete(filter QueryFilter) error
+	}
+
+	CurrentExecutionsTable interface {
+		Insert(row CurrentExecutionsRow) error
+		Update(row CurrentExecutionsRow) error
+		Select(filter QueryFilter) ([]CurrentExecutionsRow, error)
+		Delete(filter QueryFilter) error
+	}
+
+	BufferedEventsTable interface {
+		Insert(rows []BufferedEventsRow) error
+		Select(filter QueryFilter) ([]BufferedEventsRow, error)
+		Delete(filter QueryFilter) error
+	}
+
+	TasksTable interface {
+		Insert(rows []TasksRow) error
+		Select(filter QueryFilter) ([]TasksRow, error)
+		Delete(filter QueryFilter) error
+	}
+
+	TaskListsTable interface {
+		Insert(row TaskListsRow) error
+		Replace(row TaskListsRow) error
+		Update(row TaskListsRow) error
+		Select(filter QueryFilter) (TaskListsRow, error)
+		Delete(filter QueryFilter) error
+	}
+
+	ReplicationTasksTable interface {
+		Insert(rows []ReplicationTasksRow) error
+		Select(filter QueryFilter) ([]ReplicationTasksRow, error)
+		Delete(filter QueryFilter) error
+	}
+
+	TimerTasksTable interface {
+		Insert(rows []TimerTasksRow) error
+		Select(filter QueryFilter) ([]TimerTasksRow, error)
+		Delete(filter QueryFilter) error
+	}
+
+	EventsTable interface {
+		Insert(rows []EventsRow) error
+		Replace(rows []EventsRow) error
+		Select(filter QueryFilter) ([]EventsRow, error)
+		Delete(filter QueryFilter) error
+	}
+
+	ActivityInfoMapsTable interface {
+		Replace(rows []ActivityInfoMapsRow) error
+		Select(filter QueryFilter) ([]ActivityInfoMapsRow, error)
+		Delete(filter QueryFilter) error
+	}
+
+	TimerInfoMapsTable interface {
+		Replace(rows []TimerInfoMapsRow) error
+		Select(filer QueryFilter) error
+		Delete(filter QueryFilter) error
+	}
+
+	ChildExecutionInfoMapsTable interface {
+		Replace(rows []ChildExecutionInfoMapsRow) error
+		Select(filter QueryFilter) ([]ChildExecutionInfoMapsRow, error)
+		Delete(filter QueryFilter) error
+	}
+
+	RequestCancelInfoMapsTable interface {
+		Replace(rows []RequestCancelInfoMapsRow) error
+		Select(filter QueryFilter) error
+		Delete(filter QueryFilter) error
+	}
+
+	SignalInfoMapsTable interface {
+		Replace(rows []SignalInfoMapsRow) error
+		Select(filter QueryFilter) error
+		Delete(filter QueryFilter) error
+	}
+
+	BufferedReplicationTasksTable interface {
+		Replace(rows []BufferedReplicationTaskMapsRow) error
+		Select(filter QueryFilter) error
+		Delete(filter QueryFilter) error
+	}
+
+	SignalsRequestedSetsTable interface {
+		Insert(rows []SignalsRequestedSetsRow) error
+		Select(filter QueryFilter) ([]SignalsRequestedSetsRow, error)
+		Delete(filter QueryFilter) error
+	}
+
+	DB2 struct {
+		Tables struct {
+			Domain                   DomainTable
+			DomainMetadata           DomainMetadataTable
+			Shards                   ShardsTable
+			TransferTasks            TransferTasksTable
+			Executions               ExecutionsTable
+			CurrentExecutions        CurrentExecutionsTable
+			BufferedEvents           BufferedEventsTable
+			Tasks                    TasksTable
+			TaskLists                TaskListsTable
+			ReplicationTasks         ReplicationTasksTable
+			TimerTasks               TimerTasksTable
+			Events                   EventsTable
+			ActivityInfoMaps         ActivityInfoMapsTable
+			TimerInfoMaps            TimerInfoMapsTable
+			ChildExecutionInfoMaps   ChildExecutionInfoMapsTable
+			RequestCancelInfoMaps    RequestCancelInfoMapsTable
+			SignalInfoMaps           SignalInfoMapsTable
+			BufferedReplicationTasks BufferedReplicationTasksTable
+			SignalsRequestedSets     SignalsRequestedSetsTable
+		}
+	}
+)

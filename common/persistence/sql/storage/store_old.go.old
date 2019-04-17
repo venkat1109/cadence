@@ -1,0 +1,272 @@
+// Copyright (c) 2017 Uber Technologies, Inc.
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+// THE SOFTWARE.
+
+package storage
+
+/*
+import (
+	"github.com/jmoiron/sqlx"
+	"github.com/uber/cadence/common/persistence/sql/storage/db"
+)
+
+type (
+	Interface interface {
+		BeginTx() (*sqlx.Tx, error)
+		InsertIntoDomain(rows []db.DomainRow, tx *sqlx.Tx) error
+		UpdateDomain(row db.DomainRow, tx *sqlx.Tx) error
+		SelectFromDomain(filter db.QueryFilter, tx *sqlx.Tx) ([]db.DomainRow, error)
+		DeleteFromDomain(filter db.QueryFilter, tx *sqlx.Tx) error
+		InsertIntoShards(rows []db.ShardsRow, tx *sqlx.Tx) error
+		UpdateShards(row db.ShardsRow, tx *sqlx.Tx) error
+		SelectFromShards(filter db.QueryFilter, tx *sqlx.Tx) (db.ShardsRow, error)
+		ReadLockShards(filter db.QueryFilter, tx *sqlx.Tx) error
+		WriteLockShards(filter db.QueryFilter, tx *sqlx.Tx) error
+		InsertIntoTransferTasks(rows []db.TransferTasksRow, tx *sqlx.Tx) error
+		SelectFromTransferTasks(filter db.QueryFilter, tx *sqlx.Tx) ([]db.TransferTasksRow, error)
+		DeleteFromTransferTasks(filter db.QueryFilter, tx *sqlx.Tx) error
+		InsertIntoExecutions(row db.ExecutionsRow, tx *sqlx.Tx) error
+		UpdateExecutions(row db.ExecutionsRow, tx *sqlx.Tx) error
+		SelectFromExecutions(filter db.QueryFilter, tx *sqlx.Tx) (db.ExecutionsRow, error)
+		DeleteFromExecutions(filter db.QueryFilter, tx *sqlx.Tx) error
+		InsertIntoCurrentExecutions(row db.CurrentExecutionsRow, tx *sqlx.Tx) error
+		UpdateCurrentExecutions(row db.CurrentExecutionsRow, tx *sqlx.Tx) error
+		SelectFromCurrentExecutions(filter db.QueryFilter, tx *sqlx.Tx) ([]db.CurrentExecutionsRow, error)
+		DeleteFromCurrentExecutions(filter db.QueryFilter, tx *sqlx.Tx) error
+
+		InsertIntoBufferedEvents(rows []db.BufferedEventsRow) error
+		SelectFromBufferedEvents(filter db.QueryFilter) ([]db.BufferedEventsRow, error)
+		DeleteFromBufferedEvents(filter db.QueryFilter) error
+
+		InsertIntoTasks(rows []db.TasksRow) error
+		SelectFromTasks(filter db.QueryFilter) ([]db.TasksRow, error)
+		DeleteFromTasks(filter db.QueryFilter) error
+
+		InsertIntoTaskLists(row db.TasksListsRow) error
+		ReplaceIntoTaskLists(row db.TasksListsRow) error
+		UpdateTaskLists(row db.TasksListsRow) error
+		SelectFromTaskLists(filter db.QueryFilter) (db.TasksListsRow, error)
+		DeleteFromTaskLists(filter db.QueryFilter) error
+
+		InsertIntoReplicationTasks(rows []db.ReplicationTasksRow) error
+		SelectFromReplicationTasks(filter db.QueryFilter) ([]db.ReplicationTasksRow, error)
+		DeleteFromReplicationTasks(filter db.QueryFilter) error
+
+		InsertIntoTimerTasks(rows []db.TimerTasksRow) error
+		SelectFromTimerTasks(filter db.QueryFilter) ([]db.TimerTasksRow, error)
+		DeleteFromTimerTasks(filter db.QueryFilter) error
+
+		InsertIntoEvents(rows []db.EventsRow) error
+		ReplaceIntoEvents(rows []db.EventsRow) error
+		SelectFromEvents(filter db.QueryFilter) ([]db.EventsRow, error)
+		DeleteFromEvents(filter db.QueryFilter) error
+
+		ReplaceIntoActivityInfoMaps(rows []db.ActivityInfoMapsRow) error
+		SelectFromActivityInfoMaps(filter db.QueryFilter) ([]db.ActivityInfoMapsRow, error)
+		DeleteFromActivityInfoMaps(filter db.QueryFilter) error
+
+		ReplaceIntoTimerInfoMaps(rows []db.TimerInfoMapsRow) error
+		SelectFromTimerInfoMaps(filer db.QueryFilter) error
+		DeleteFromTimerInfoMaps(filter db.QueryFilter) error
+
+		ReplaceIntoChildExecutionInfoMaps(rows []db.ChildExecutionInfoMapsRow) error
+		SelectFromChildExecutionInfoMaps(filter db.QueryFilter) ([]db.ChildExecutionInfoMapsRow, error)
+		DeleteFromChildExecutionInfoMaps(filter db.QueryFilter) error
+
+		ReplaceIntoRequestCancelInfoMaps(rows []db.RequestCancelInfoMapsRow) error
+		SelectFromRequestCancelInfoMaps(filter db.QueryFilter) error
+		DeleteFromRequestCancelInfoMaps(filter db.QueryFilter) error
+
+		ReplaceIntoSignalInfoMaps(rows []db.SignalInfoMapsRow) error
+		SelectFromSignalInfoMaps(filter db.QueryFilter) error
+		DeleteFromSignalInfoMaps(filter db.QueryFilter) error
+
+		ReplaceIntoBufferedReplicationTasks(rows []db.BufferedReplicationTaskMapsRow) error
+		SelectFromBufferedReplicationTasks(filter db.QueryFilter) error
+		DeleteFromBufferedReplicationTasks(filter db.QueryFilter) error
+
+		InsertIntoSignalsRequestedSets(rows []db.SignalsRequestedSetsRow) error
+		SelectFromSignalsRequestedSets(filter db.QueryFilter) ([]db.SignalsRequestedSetsRow, error)
+		DeleteFromSignalsRequestedSets(filter db.QueryFilter) error
+	}
+
+	txStore struct {
+		tx   *sqlx.Tx
+		impl Interface
+	}
+)
+
+func newStore(impl Interface) *txStore {
+	return &txStore{impl: impl}
+}
+
+func (s *txStore) BeginTx() (db.Tx, error) {
+	tx, err := s.impl.BeginTx()
+	if err != nil {
+		return nil, err
+	}
+	return &txStore{tx: tx, impl: s}, nil
+}
+
+func (s *txStore) Commit() error {
+	return s.tx.Commit()
+}
+
+func (s *txStore) Rollback() error {
+	return s.tx.Rollback()
+}
+
+func (s *txStore) InsertIntoDomain(rows []db.DomainRow) error {
+	return s.impl.InsertIntoDomain(rows, s.tx)
+}
+
+func (s *txStore) UpdateDomain(row db.DomainRow) error {
+	return s.impl.UpdateDomain(row, s.tx)
+}
+
+func (s *txStore) SelectFromDomain(filter db.QueryFilter) ([]db.DomainRow, error) {
+	return s.impl.SelectFromDomain(filter, s.tx)
+}
+
+func (s *txStore) DeleteFromDomain(filter db.QueryFilter) error {
+	return s.impl.DeleteFromDomain(filter, s.tx)
+}
+
+func (s *txStore) InsertIntoShards(rows []db.ShardsRow) error {
+	return s.impl.InsertIntoShards(rows, s.tx)
+}
+
+func (s *txStore) UpdateShards(row db.ShardsRow) error {
+	return s.impl.UpdateShards(row, s.tx)
+}
+
+func (s *txStore) SelectFromShards(filter db.QueryFilter) (db.ShardsRow, error) {
+	return s.impl.SelectFromShards(filter, s.tx)
+}
+
+func (s *txStore) ReadLockShards(filter db.QueryFilter) error {
+	return s.impl.ReadLockShards(filter, s.tx)
+}
+
+func (s *txStore) WriteLockShards(filter db.QueryFilter) error {
+	return s.impl.WriteLockShards(filter, s.tx)
+}
+
+func (s *txStore) InsertIntoTransferTasks(rows []db.TransferTasksRow) error {
+	return s.impl.InsertIntoTransferTasks(rows, s.tx)
+}
+
+func (s *txStore) SelectFromTransferTasks(filter db.QueryFilter) ([]db.TransferTasksRow, error) {
+	return s.impl.SelectFromTransferTasks(filter, s.tx)
+}
+
+func (s *txStore) DeleteFromTransferTasks(filter db.QueryFilter) error {
+	return s.impl.DeleteFromTransferTasks(filter, s.tx)
+}
+
+func (s *txStore) InsertIntoExecutions(row db.ExecutionsRow) error {
+	return s.impl.InsertIntoExecutions(row, s.tx)
+}
+
+func (s *txStore) UpdateExecutions(row db.ExecutionsRow) error {
+	return s.impl.UpdateExecutions(row, s.tx)
+}
+
+func (s *txStore) SelectFromExecutions(filter db.QueryFilter) (db.ExecutionsRow, error) {
+	return s.impl.SelectFromExecutions(filter, s.tx)
+}
+
+func (s *txStore) DeleteFromExecutions(filter db.QueryFilter) error {
+	return s.impl.DeleteFromExecutions(filter, s.tx)
+}
+
+func (s *txStore) InsertIntoCurrentExecutions(row db.CurrentExecutionsRow) error {
+	return s.impl.InsertIntoCurrentExecutions(row, s.tx)
+}
+
+func (s *txStore) UpdateCurrentExecutions(row db.CurrentExecutionsRow) error {
+	return s.impl.UpdateCurrentExecutions(row, s.tx)
+}
+
+func (s *txStore) SelectFromCurrentExecutions(filter db.QueryFilter) ([]db.CurrentExecutionsRow, error) {
+	return s.impl.SelectFromCurrentExecutions(filter, s.tx)
+}
+
+func (s *txStore) DeleteFromCurrentExecutions(filter db.QueryFilter) error {
+	return s.impl.DeleteFromCurrentExecutions(filter, s.tx)
+}
+
+func (s *txStore) InsertIntoBufferedEvents(rows []db.BufferedEventsRow) error {
+
+}
+
+func (s *txStore) SelectFromBufferedEvents(filter db.QueryFilter) ([]db.BufferedEventsRow, error)
+func (s *txStore) DeleteFromBufferedEvents(filter db.QueryFilter) error
+
+func (s *txStore) InsertIntoTasks(rows []db.TasksRow) error
+func (s *txStore) SelectFromTasks(filter db.QueryFilter) ([]db.TasksRow, error)
+func (s *txStore) DeleteFromTasks(filter db.QueryFilter) error
+
+func (s *txStore) InsertIntoTaskLists(row db.TasksListsRow) error
+func (s *txStore) ReplaceIntoTaskLists(row db.TasksListsRow) error
+func (s *txStore) UpdateTaskLists(row db.TasksListsRow) error
+func (s *txStore) SelectFromTaskLists(filter db.QueryFilter) (db.TasksListsRow, error)
+func (s *txStore) DeleteFromTaskLists(filter db.QueryFilter) error
+
+func (s *txStore) InsertIntoReplicationTasks(rows []db.ReplicationTasksRow) error
+func (s *txStore) SelectFromReplicationTasks(filter db.QueryFilter) ([]db.ReplicationTasksRow, error)
+func (s *txStore) DeleteFromReplicationTasks(filter db.QueryFilter) error
+
+func (s *txStore) InsertIntoTimerTasks(rows []db.TimerTasksRow) error
+func (s *txStore) SelectFromTimerTasks(filter db.QueryFilter) ([]db.TimerTasksRow, error)
+func (s *txStore) DeleteFromTimerTasks(filter db.QueryFilter) error
+
+func (s *txStore) InsertIntoEvents(rows []db.EventsRow) error
+func (s *txStore) ReplaceIntoEvents(rows []db.EventsRow) error
+func (s *txStore) SelectFromEvents(filter db.QueryFilter) ([]db.EventsRow, error)
+func (s *txStore) DeleteFromEvents(filter db.QueryFilter) error
+
+func (s *txStore) ReplaceIntoActivityInfoMaps(rows []db.ActivityInfoMapsRow) error
+func (s *txStore) SelectFromActivityInfoMaps(filter db.QueryFilter) ([]db.ActivityInfoMapsRow, error)
+func (s *txStore) DeleteFromActivityInfoMaps(filter db.QueryFilter) error
+
+func (s *txStore) ReplaceIntoTimerInfoMaps(rows []db.TimerInfoMapsRow) error
+func (s *txStore) SelectFromTimerInfoMaps(filer db.QueryFilter) error
+func (s *txStore) DeleteFromTimerInfoMaps(filter db.QueryFilter) error
+
+func (s *txStore) ReplaceIntoChildExecutionInfoMaps(rows []db.ChildExecutionInfoMapsRow) error
+func (s *txStore) SelectFromChildExecutionInfoMaps(filter db.QueryFilter) ([]db.ChildExecutionInfoMapsRow, error)
+func (s *txStore) DeleteFromChildExecutionInfoMaps(filter db.QueryFilter) error
+
+func (s *txStore) ReplaceIntoRequestCancelInfoMaps(rows []db.RequestCancelInfoMapsRow) error
+func (s *txStore) SelectFromRequestCancelInfoMaps(filter db.QueryFilter) error
+func (s *txStore) DeleteFromRequestCancelInfoMaps(filter db.QueryFilter) error
+
+func (s *txStore) ReplaceIntoSignalInfoMaps(rows []db.SignalInfoMapsRow) error
+func (s *txStore) SelectFromSignalInfoMaps(filter db.QueryFilter) error
+func (s *txStore) DeleteFromSignalInfoMaps(filter db.QueryFilter) error
+
+func (s *txStore) ReplaceIntoBufferedReplicationTasks(rows []db.BufferedReplicationTaskMapsRow) error
+func (s *txStore) SelectFromBufferedReplicationTasks(filter db.QueryFilter) error
+func (s *txStore) DeleteFromBufferedReplicationTasks(filter db.QueryFilter) error
+
+func (s *txStore) InsertIntoSignalsRequestedSets(rows []db.SignalsRequestedSetsRow) error
+func (s *txStore) SelectFromSignalsRequestedSets(filter db.QueryFilter) ([]db.SignalsRequestedSetsRow, error)
+func (s *txStore) DeleteFromSignalsRequestedSets(filter db.QueryFilter) error
+*/

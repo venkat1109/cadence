@@ -11,14 +11,14 @@ default: test
 # define the list of thrift files the service depends on
 # (if you have some)
 THRIFTRW_SRCS = \
-  idl/github.com/uber/cadence/cadence.thrift \
-  idl/github.com/uber/cadence/health.thrift \
-  idl/github.com/uber/cadence/history.thrift \
-  idl/github.com/uber/cadence/matching.thrift \
-  idl/github.com/uber/cadence/replicator.thrift \
-  idl/github.com/uber/cadence/indexer.thrift \
-  idl/github.com/uber/cadence/shared.thrift \
-  idl/github.com/uber/cadence/admin.thrift \
+  idl/github.com/uber/cadence/sqlblobs.thrift \
+  #idl/github.com/uber/cadence/health.thrift \
+  #idl/github.com/uber/cadence/history.thrift \
+  #idl/github.com/uber/cadence/matching.thrift \
+  #idl/github.com/uber/cadence/replicator.thrift \
+  #idl/github.com/uber/cadence/indexer.thrift \
+  #idl/github.com/uber/cadence/shared.thrift \
+  #idl/github.com/uber/cadence/admin.thrift \
 
 PROGS = cadence
 TEST_ARG ?= -race -v -timeout 40m
