@@ -7,6 +7,8 @@ import (
 	bytes "bytes"
 	base64 "encoding/base64"
 	fmt "fmt"
+	shared "github.com/uber/cadence/.gen/go/shared"
+	multierr "go.uber.org/multierr"
 	wire "go.uber.org/thriftrw/wire"
 	zapcore "go.uber.org/zap/zapcore"
 	strings "strings"
@@ -24,10 +26,10 @@ type ActivityInfo struct {
 	StartedTimeNanos              *int64   `json:"startedTimeNanos,omitempty"`
 	ActivityID                    *string  `json:"activityID,omitempty"`
 	RequestID                     *string  `json:"requestID,omitempty"`
-	ScheduleToStartTimeoutSeconds *int64   `json:"scheduleToStartTimeoutSeconds,omitempty"`
-	ScheduleToCloseTimeoutSeconds *int64   `json:"scheduleToCloseTimeoutSeconds,omitempty"`
-	StartToCloseTimeoutSeconds    *int64   `json:"startToCloseTimeoutSeconds,omitempty"`
-	HeartbeatTimeoutSeconds       *int64   `json:"heartbeatTimeoutSeconds,omitempty"`
+	ScheduleToStartTimeoutSeconds *int32   `json:"scheduleToStartTimeoutSeconds,omitempty"`
+	ScheduleToCloseTimeoutSeconds *int32   `json:"scheduleToCloseTimeoutSeconds,omitempty"`
+	StartToCloseTimeoutSeconds    *int32   `json:"startToCloseTimeoutSeconds,omitempty"`
+	HeartbeatTimeoutSeconds       *int32   `json:"heartbeatTimeoutSeconds,omitempty"`
 	CancelRequested               *bool    `json:"cancelRequested,omitempty"`
 	CancelRequestID               *int64   `json:"cancelRequestID,omitempty"`
 	TimerTaskStatus               *int32   `json:"timerTaskStatus,omitempty"`
@@ -40,8 +42,34 @@ type ActivityInfo struct {
 	RetryMaximumAttempts          *int32   `json:"retryMaximumAttempts,omitempty"`
 	RetryExpirationTimeNanos      *int64   `json:"retryExpirationTimeNanos,omitempty"`
 	RetryBackoffCoefficient       *float64 `json:"retryBackoffCoefficient,omitempty"`
-	RetryNonRetryableErrors       []byte   `json:"retryNonRetryableErrors,omitempty"`
+	RetryNonRetryableErrors       []string `json:"retryNonRetryableErrors,omitempty"`
 }
+
+type _List_String_ValueList []string
+
+func (v _List_String_ValueList) ForEach(f func(wire.Value) error) error {
+	for _, x := range v {
+		w, err := wire.NewValueString(x), error(nil)
+		if err != nil {
+			return err
+		}
+		err = f(w)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (v _List_String_ValueList) Size() int {
+	return len(v)
+}
+
+func (_List_String_ValueList) ValueType() wire.Type {
+	return wire.TBinary
+}
+
+func (_List_String_ValueList) Close() {}
 
 // ToWire translates a ActivityInfo struct into a Thrift-level intermediate
 // representation. This intermediate representation may be serialized
@@ -155,7 +183,7 @@ func (v *ActivityInfo) ToWire() (wire.Value, error) {
 		i++
 	}
 	if v.ScheduleToStartTimeoutSeconds != nil {
-		w, err = wire.NewValueI64(*(v.ScheduleToStartTimeoutSeconds)), error(nil)
+		w, err = wire.NewValueI32(*(v.ScheduleToStartTimeoutSeconds)), error(nil)
 		if err != nil {
 			return w, err
 		}
@@ -163,7 +191,7 @@ func (v *ActivityInfo) ToWire() (wire.Value, error) {
 		i++
 	}
 	if v.ScheduleToCloseTimeoutSeconds != nil {
-		w, err = wire.NewValueI64(*(v.ScheduleToCloseTimeoutSeconds)), error(nil)
+		w, err = wire.NewValueI32(*(v.ScheduleToCloseTimeoutSeconds)), error(nil)
 		if err != nil {
 			return w, err
 		}
@@ -171,7 +199,7 @@ func (v *ActivityInfo) ToWire() (wire.Value, error) {
 		i++
 	}
 	if v.StartToCloseTimeoutSeconds != nil {
-		w, err = wire.NewValueI64(*(v.StartToCloseTimeoutSeconds)), error(nil)
+		w, err = wire.NewValueI32(*(v.StartToCloseTimeoutSeconds)), error(nil)
 		if err != nil {
 			return w, err
 		}
@@ -179,7 +207,7 @@ func (v *ActivityInfo) ToWire() (wire.Value, error) {
 		i++
 	}
 	if v.HeartbeatTimeoutSeconds != nil {
-		w, err = wire.NewValueI64(*(v.HeartbeatTimeoutSeconds)), error(nil)
+		w, err = wire.NewValueI32(*(v.HeartbeatTimeoutSeconds)), error(nil)
 		if err != nil {
 			return w, err
 		}
@@ -283,7 +311,7 @@ func (v *ActivityInfo) ToWire() (wire.Value, error) {
 		i++
 	}
 	if v.RetryNonRetryableErrors != nil {
-		w, err = wire.NewValueBinary(v.RetryNonRetryableErrors), error(nil)
+		w, err = wire.NewValueList(_List_String_ValueList(v.RetryNonRetryableErrors)), error(nil)
 		if err != nil {
 			return w, err
 		}
@@ -292,6 +320,24 @@ func (v *ActivityInfo) ToWire() (wire.Value, error) {
 	}
 
 	return wire.NewValueStruct(wire.Struct{Fields: fields[:i]}), nil
+}
+
+func _List_String_Read(l wire.ValueList) ([]string, error) {
+	if l.ValueType() != wire.TBinary {
+		return nil, nil
+	}
+
+	o := make([]string, 0, l.Size())
+	err := l.ForEach(func(x wire.Value) error {
+		i, err := x.GetString(), error(nil)
+		if err != nil {
+			return err
+		}
+		o = append(o, i)
+		return nil
+	})
+	l.Close()
+	return o, err
 }
 
 // FromWire deserializes a ActivityInfo struct from its Thrift-level
@@ -423,9 +469,9 @@ func (v *ActivityInfo) FromWire(w wire.Value) error {
 
 			}
 		case 32:
-			if field.Value.Type() == wire.TI64 {
-				var x int64
-				x, err = field.Value.GetI64(), error(nil)
+			if field.Value.Type() == wire.TI32 {
+				var x int32
+				x, err = field.Value.GetI32(), error(nil)
 				v.ScheduleToStartTimeoutSeconds = &x
 				if err != nil {
 					return err
@@ -433,9 +479,9 @@ func (v *ActivityInfo) FromWire(w wire.Value) error {
 
 			}
 		case 34:
-			if field.Value.Type() == wire.TI64 {
-				var x int64
-				x, err = field.Value.GetI64(), error(nil)
+			if field.Value.Type() == wire.TI32 {
+				var x int32
+				x, err = field.Value.GetI32(), error(nil)
 				v.ScheduleToCloseTimeoutSeconds = &x
 				if err != nil {
 					return err
@@ -443,9 +489,9 @@ func (v *ActivityInfo) FromWire(w wire.Value) error {
 
 			}
 		case 36:
-			if field.Value.Type() == wire.TI64 {
-				var x int64
-				x, err = field.Value.GetI64(), error(nil)
+			if field.Value.Type() == wire.TI32 {
+				var x int32
+				x, err = field.Value.GetI32(), error(nil)
 				v.StartToCloseTimeoutSeconds = &x
 				if err != nil {
 					return err
@@ -453,9 +499,9 @@ func (v *ActivityInfo) FromWire(w wire.Value) error {
 
 			}
 		case 38:
-			if field.Value.Type() == wire.TI64 {
-				var x int64
-				x, err = field.Value.GetI64(), error(nil)
+			if field.Value.Type() == wire.TI32 {
+				var x int32
+				x, err = field.Value.GetI32(), error(nil)
 				v.HeartbeatTimeoutSeconds = &x
 				if err != nil {
 					return err
@@ -583,8 +629,8 @@ func (v *ActivityInfo) FromWire(w wire.Value) error {
 
 			}
 		case 64:
-			if field.Value.Type() == wire.TBinary {
-				v.RetryNonRetryableErrors, err = field.Value.GetBinary(), error(nil)
+			if field.Value.Type() == wire.TList {
+				v.RetryNonRetryableErrors, err = _List_String_Read(field.Value.GetList())
 				if err != nil {
 					return err
 				}
@@ -741,7 +787,7 @@ func _String_EqualsPtr(lhs, rhs *string) bool {
 	return lhs == nil && rhs == nil
 }
 
-func _Bool_EqualsPtr(lhs, rhs *bool) bool {
+func _I32_EqualsPtr(lhs, rhs *int32) bool {
 	if lhs != nil && rhs != nil {
 
 		x := *lhs
@@ -751,7 +797,7 @@ func _Bool_EqualsPtr(lhs, rhs *bool) bool {
 	return lhs == nil && rhs == nil
 }
 
-func _I32_EqualsPtr(lhs, rhs *int32) bool {
+func _Bool_EqualsPtr(lhs, rhs *bool) bool {
 	if lhs != nil && rhs != nil {
 
 		x := *lhs
@@ -769,6 +815,21 @@ func _Double_EqualsPtr(lhs, rhs *float64) bool {
 		return (x == y)
 	}
 	return lhs == nil && rhs == nil
+}
+
+func _List_String_Equals(lhs, rhs []string) bool {
+	if len(lhs) != len(rhs) {
+		return false
+	}
+
+	for i, lv := range lhs {
+		rv := rhs[i]
+		if !(lv == rv) {
+			return false
+		}
+	}
+
+	return true
 }
 
 // Equals returns true if all the fields of this ActivityInfo match the
@@ -814,16 +875,16 @@ func (v *ActivityInfo) Equals(rhs *ActivityInfo) bool {
 	if !_String_EqualsPtr(v.RequestID, rhs.RequestID) {
 		return false
 	}
-	if !_I64_EqualsPtr(v.ScheduleToStartTimeoutSeconds, rhs.ScheduleToStartTimeoutSeconds) {
+	if !_I32_EqualsPtr(v.ScheduleToStartTimeoutSeconds, rhs.ScheduleToStartTimeoutSeconds) {
 		return false
 	}
-	if !_I64_EqualsPtr(v.ScheduleToCloseTimeoutSeconds, rhs.ScheduleToCloseTimeoutSeconds) {
+	if !_I32_EqualsPtr(v.ScheduleToCloseTimeoutSeconds, rhs.ScheduleToCloseTimeoutSeconds) {
 		return false
 	}
-	if !_I64_EqualsPtr(v.StartToCloseTimeoutSeconds, rhs.StartToCloseTimeoutSeconds) {
+	if !_I32_EqualsPtr(v.StartToCloseTimeoutSeconds, rhs.StartToCloseTimeoutSeconds) {
 		return false
 	}
-	if !_I64_EqualsPtr(v.HeartbeatTimeoutSeconds, rhs.HeartbeatTimeoutSeconds) {
+	if !_I32_EqualsPtr(v.HeartbeatTimeoutSeconds, rhs.HeartbeatTimeoutSeconds) {
 		return false
 	}
 	if !_Bool_EqualsPtr(v.CancelRequested, rhs.CancelRequested) {
@@ -862,11 +923,22 @@ func (v *ActivityInfo) Equals(rhs *ActivityInfo) bool {
 	if !_Double_EqualsPtr(v.RetryBackoffCoefficient, rhs.RetryBackoffCoefficient) {
 		return false
 	}
-	if !((v.RetryNonRetryableErrors == nil && rhs.RetryNonRetryableErrors == nil) || (v.RetryNonRetryableErrors != nil && rhs.RetryNonRetryableErrors != nil && bytes.Equal(v.RetryNonRetryableErrors, rhs.RetryNonRetryableErrors))) {
+	if !((v.RetryNonRetryableErrors == nil && rhs.RetryNonRetryableErrors == nil) || (v.RetryNonRetryableErrors != nil && rhs.RetryNonRetryableErrors != nil && _List_String_Equals(v.RetryNonRetryableErrors, rhs.RetryNonRetryableErrors))) {
 		return false
 	}
 
 	return true
+}
+
+type _List_String_Zapper []string
+
+// MarshalLogArray implements zapcore.ArrayMarshaler, enabling
+// fast logging of _List_String_Zapper.
+func (l _List_String_Zapper) MarshalLogArray(enc zapcore.ArrayEncoder) (err error) {
+	for _, v := range l {
+		enc.AppendString(v)
+	}
+	return err
 }
 
 // MarshalLogObject implements zapcore.ObjectMarshaler, enabling
@@ -909,16 +981,16 @@ func (v *ActivityInfo) MarshalLogObject(enc zapcore.ObjectEncoder) (err error) {
 		enc.AddString("requestID", *v.RequestID)
 	}
 	if v.ScheduleToStartTimeoutSeconds != nil {
-		enc.AddInt64("scheduleToStartTimeoutSeconds", *v.ScheduleToStartTimeoutSeconds)
+		enc.AddInt32("scheduleToStartTimeoutSeconds", *v.ScheduleToStartTimeoutSeconds)
 	}
 	if v.ScheduleToCloseTimeoutSeconds != nil {
-		enc.AddInt64("scheduleToCloseTimeoutSeconds", *v.ScheduleToCloseTimeoutSeconds)
+		enc.AddInt32("scheduleToCloseTimeoutSeconds", *v.ScheduleToCloseTimeoutSeconds)
 	}
 	if v.StartToCloseTimeoutSeconds != nil {
-		enc.AddInt64("startToCloseTimeoutSeconds", *v.StartToCloseTimeoutSeconds)
+		enc.AddInt32("startToCloseTimeoutSeconds", *v.StartToCloseTimeoutSeconds)
 	}
 	if v.HeartbeatTimeoutSeconds != nil {
-		enc.AddInt64("heartbeatTimeoutSeconds", *v.HeartbeatTimeoutSeconds)
+		enc.AddInt32("heartbeatTimeoutSeconds", *v.HeartbeatTimeoutSeconds)
 	}
 	if v.CancelRequested != nil {
 		enc.AddBool("cancelRequested", *v.CancelRequested)
@@ -957,7 +1029,7 @@ func (v *ActivityInfo) MarshalLogObject(enc zapcore.ObjectEncoder) (err error) {
 		enc.AddFloat64("retryBackoffCoefficient", *v.RetryBackoffCoefficient)
 	}
 	if v.RetryNonRetryableErrors != nil {
-		enc.AddString("retryNonRetryableErrors", base64.StdEncoding.EncodeToString(v.RetryNonRetryableErrors))
+		err = multierr.Append(err, enc.AddArray("retryNonRetryableErrors", (_List_String_Zapper)(v.RetryNonRetryableErrors)))
 	}
 	return err
 }
@@ -1129,7 +1201,7 @@ func (v *ActivityInfo) IsSetRequestID() bool {
 
 // GetScheduleToStartTimeoutSeconds returns the value of ScheduleToStartTimeoutSeconds if it is set or its
 // zero value if it is unset.
-func (v *ActivityInfo) GetScheduleToStartTimeoutSeconds() (o int64) {
+func (v *ActivityInfo) GetScheduleToStartTimeoutSeconds() (o int32) {
 	if v != nil && v.ScheduleToStartTimeoutSeconds != nil {
 		return *v.ScheduleToStartTimeoutSeconds
 	}
@@ -1144,7 +1216,7 @@ func (v *ActivityInfo) IsSetScheduleToStartTimeoutSeconds() bool {
 
 // GetScheduleToCloseTimeoutSeconds returns the value of ScheduleToCloseTimeoutSeconds if it is set or its
 // zero value if it is unset.
-func (v *ActivityInfo) GetScheduleToCloseTimeoutSeconds() (o int64) {
+func (v *ActivityInfo) GetScheduleToCloseTimeoutSeconds() (o int32) {
 	if v != nil && v.ScheduleToCloseTimeoutSeconds != nil {
 		return *v.ScheduleToCloseTimeoutSeconds
 	}
@@ -1159,7 +1231,7 @@ func (v *ActivityInfo) IsSetScheduleToCloseTimeoutSeconds() bool {
 
 // GetStartToCloseTimeoutSeconds returns the value of StartToCloseTimeoutSeconds if it is set or its
 // zero value if it is unset.
-func (v *ActivityInfo) GetStartToCloseTimeoutSeconds() (o int64) {
+func (v *ActivityInfo) GetStartToCloseTimeoutSeconds() (o int32) {
 	if v != nil && v.StartToCloseTimeoutSeconds != nil {
 		return *v.StartToCloseTimeoutSeconds
 	}
@@ -1174,7 +1246,7 @@ func (v *ActivityInfo) IsSetStartToCloseTimeoutSeconds() bool {
 
 // GetHeartbeatTimeoutSeconds returns the value of HeartbeatTimeoutSeconds if it is set or its
 // zero value if it is unset.
-func (v *ActivityInfo) GetHeartbeatTimeoutSeconds() (o int64) {
+func (v *ActivityInfo) GetHeartbeatTimeoutSeconds() (o int32) {
 	if v != nil && v.HeartbeatTimeoutSeconds != nil {
 		return *v.HeartbeatTimeoutSeconds
 	}
@@ -1369,7 +1441,7 @@ func (v *ActivityInfo) IsSetRetryBackoffCoefficient() bool {
 
 // GetRetryNonRetryableErrors returns the value of RetryNonRetryableErrors if it is set or its
 // zero value if it is unset.
-func (v *ActivityInfo) GetRetryNonRetryableErrors() (o []byte) {
+func (v *ActivityInfo) GetRetryNonRetryableErrors() (o []string) {
 	if v != nil && v.RetryNonRetryableErrors != nil {
 		return v.RetryNonRetryableErrors
 	}
@@ -1380,448 +1452,6 @@ func (v *ActivityInfo) GetRetryNonRetryableErrors() (o []byte) {
 // IsSetRetryNonRetryableErrors returns true if RetryNonRetryableErrors is not nil.
 func (v *ActivityInfo) IsSetRetryNonRetryableErrors() bool {
 	return v != nil && v.RetryNonRetryableErrors != nil
-}
-
-type BufferedReplicationTaskInfo struct {
-	Version                 *int64  `json:"version,omitempty"`
-	NextEventID             *int64  `json:"nextEventID,omitempty"`
-	History                 []byte  `json:"history,omitempty"`
-	HistoryEncoding         *string `json:"historyEncoding,omitempty"`
-	NewRunHistory           []byte  `json:"newRunHistory,omitempty"`
-	NewRunHistoryEncoding   *string `json:"newRunHistoryEncoding,omitempty"`
-	EventStoreVersion       *int32  `json:"eventStoreVersion,omitempty"`
-	NewRunEventStoreVersion *int32  `json:"newRunEventStoreVersion,omitempty"`
-}
-
-// ToWire translates a BufferedReplicationTaskInfo struct into a Thrift-level intermediate
-// representation. This intermediate representation may be serialized
-// into bytes using a ThriftRW protocol implementation.
-//
-// An error is returned if the struct or any of its fields failed to
-// validate.
-//
-//   x, err := v.ToWire()
-//   if err != nil {
-//     return err
-//   }
-//
-//   if err := binaryProtocol.Encode(x, writer); err != nil {
-//     return err
-//   }
-func (v *BufferedReplicationTaskInfo) ToWire() (wire.Value, error) {
-	var (
-		fields [8]wire.Field
-		i      int = 0
-		w      wire.Value
-		err    error
-	)
-
-	if v.Version != nil {
-		w, err = wire.NewValueI64(*(v.Version)), error(nil)
-		if err != nil {
-			return w, err
-		}
-		fields[i] = wire.Field{ID: 10, Value: w}
-		i++
-	}
-	if v.NextEventID != nil {
-		w, err = wire.NewValueI64(*(v.NextEventID)), error(nil)
-		if err != nil {
-			return w, err
-		}
-		fields[i] = wire.Field{ID: 12, Value: w}
-		i++
-	}
-	if v.History != nil {
-		w, err = wire.NewValueBinary(v.History), error(nil)
-		if err != nil {
-			return w, err
-		}
-		fields[i] = wire.Field{ID: 14, Value: w}
-		i++
-	}
-	if v.HistoryEncoding != nil {
-		w, err = wire.NewValueString(*(v.HistoryEncoding)), error(nil)
-		if err != nil {
-			return w, err
-		}
-		fields[i] = wire.Field{ID: 16, Value: w}
-		i++
-	}
-	if v.NewRunHistory != nil {
-		w, err = wire.NewValueBinary(v.NewRunHistory), error(nil)
-		if err != nil {
-			return w, err
-		}
-		fields[i] = wire.Field{ID: 18, Value: w}
-		i++
-	}
-	if v.NewRunHistoryEncoding != nil {
-		w, err = wire.NewValueString(*(v.NewRunHistoryEncoding)), error(nil)
-		if err != nil {
-			return w, err
-		}
-		fields[i] = wire.Field{ID: 20, Value: w}
-		i++
-	}
-	if v.EventStoreVersion != nil {
-		w, err = wire.NewValueI32(*(v.EventStoreVersion)), error(nil)
-		if err != nil {
-			return w, err
-		}
-		fields[i] = wire.Field{ID: 22, Value: w}
-		i++
-	}
-	if v.NewRunEventStoreVersion != nil {
-		w, err = wire.NewValueI32(*(v.NewRunEventStoreVersion)), error(nil)
-		if err != nil {
-			return w, err
-		}
-		fields[i] = wire.Field{ID: 24, Value: w}
-		i++
-	}
-
-	return wire.NewValueStruct(wire.Struct{Fields: fields[:i]}), nil
-}
-
-// FromWire deserializes a BufferedReplicationTaskInfo struct from its Thrift-level
-// representation. The Thrift-level representation may be obtained
-// from a ThriftRW protocol implementation.
-//
-// An error is returned if we were unable to build a BufferedReplicationTaskInfo struct
-// from the provided intermediate representation.
-//
-//   x, err := binaryProtocol.Decode(reader, wire.TStruct)
-//   if err != nil {
-//     return nil, err
-//   }
-//
-//   var v BufferedReplicationTaskInfo
-//   if err := v.FromWire(x); err != nil {
-//     return nil, err
-//   }
-//   return &v, nil
-func (v *BufferedReplicationTaskInfo) FromWire(w wire.Value) error {
-	var err error
-
-	for _, field := range w.GetStruct().Fields {
-		switch field.ID {
-		case 10:
-			if field.Value.Type() == wire.TI64 {
-				var x int64
-				x, err = field.Value.GetI64(), error(nil)
-				v.Version = &x
-				if err != nil {
-					return err
-				}
-
-			}
-		case 12:
-			if field.Value.Type() == wire.TI64 {
-				var x int64
-				x, err = field.Value.GetI64(), error(nil)
-				v.NextEventID = &x
-				if err != nil {
-					return err
-				}
-
-			}
-		case 14:
-			if field.Value.Type() == wire.TBinary {
-				v.History, err = field.Value.GetBinary(), error(nil)
-				if err != nil {
-					return err
-				}
-
-			}
-		case 16:
-			if field.Value.Type() == wire.TBinary {
-				var x string
-				x, err = field.Value.GetString(), error(nil)
-				v.HistoryEncoding = &x
-				if err != nil {
-					return err
-				}
-
-			}
-		case 18:
-			if field.Value.Type() == wire.TBinary {
-				v.NewRunHistory, err = field.Value.GetBinary(), error(nil)
-				if err != nil {
-					return err
-				}
-
-			}
-		case 20:
-			if field.Value.Type() == wire.TBinary {
-				var x string
-				x, err = field.Value.GetString(), error(nil)
-				v.NewRunHistoryEncoding = &x
-				if err != nil {
-					return err
-				}
-
-			}
-		case 22:
-			if field.Value.Type() == wire.TI32 {
-				var x int32
-				x, err = field.Value.GetI32(), error(nil)
-				v.EventStoreVersion = &x
-				if err != nil {
-					return err
-				}
-
-			}
-		case 24:
-			if field.Value.Type() == wire.TI32 {
-				var x int32
-				x, err = field.Value.GetI32(), error(nil)
-				v.NewRunEventStoreVersion = &x
-				if err != nil {
-					return err
-				}
-
-			}
-		}
-	}
-
-	return nil
-}
-
-// String returns a readable string representation of a BufferedReplicationTaskInfo
-// struct.
-func (v *BufferedReplicationTaskInfo) String() string {
-	if v == nil {
-		return "<nil>"
-	}
-
-	var fields [8]string
-	i := 0
-	if v.Version != nil {
-		fields[i] = fmt.Sprintf("Version: %v", *(v.Version))
-		i++
-	}
-	if v.NextEventID != nil {
-		fields[i] = fmt.Sprintf("NextEventID: %v", *(v.NextEventID))
-		i++
-	}
-	if v.History != nil {
-		fields[i] = fmt.Sprintf("History: %v", v.History)
-		i++
-	}
-	if v.HistoryEncoding != nil {
-		fields[i] = fmt.Sprintf("HistoryEncoding: %v", *(v.HistoryEncoding))
-		i++
-	}
-	if v.NewRunHistory != nil {
-		fields[i] = fmt.Sprintf("NewRunHistory: %v", v.NewRunHistory)
-		i++
-	}
-	if v.NewRunHistoryEncoding != nil {
-		fields[i] = fmt.Sprintf("NewRunHistoryEncoding: %v", *(v.NewRunHistoryEncoding))
-		i++
-	}
-	if v.EventStoreVersion != nil {
-		fields[i] = fmt.Sprintf("EventStoreVersion: %v", *(v.EventStoreVersion))
-		i++
-	}
-	if v.NewRunEventStoreVersion != nil {
-		fields[i] = fmt.Sprintf("NewRunEventStoreVersion: %v", *(v.NewRunEventStoreVersion))
-		i++
-	}
-
-	return fmt.Sprintf("BufferedReplicationTaskInfo{%v}", strings.Join(fields[:i], ", "))
-}
-
-// Equals returns true if all the fields of this BufferedReplicationTaskInfo match the
-// provided BufferedReplicationTaskInfo.
-//
-// This function performs a deep comparison.
-func (v *BufferedReplicationTaskInfo) Equals(rhs *BufferedReplicationTaskInfo) bool {
-	if v == nil {
-		return rhs == nil
-	} else if rhs == nil {
-		return false
-	}
-	if !_I64_EqualsPtr(v.Version, rhs.Version) {
-		return false
-	}
-	if !_I64_EqualsPtr(v.NextEventID, rhs.NextEventID) {
-		return false
-	}
-	if !((v.History == nil && rhs.History == nil) || (v.History != nil && rhs.History != nil && bytes.Equal(v.History, rhs.History))) {
-		return false
-	}
-	if !_String_EqualsPtr(v.HistoryEncoding, rhs.HistoryEncoding) {
-		return false
-	}
-	if !((v.NewRunHistory == nil && rhs.NewRunHistory == nil) || (v.NewRunHistory != nil && rhs.NewRunHistory != nil && bytes.Equal(v.NewRunHistory, rhs.NewRunHistory))) {
-		return false
-	}
-	if !_String_EqualsPtr(v.NewRunHistoryEncoding, rhs.NewRunHistoryEncoding) {
-		return false
-	}
-	if !_I32_EqualsPtr(v.EventStoreVersion, rhs.EventStoreVersion) {
-		return false
-	}
-	if !_I32_EqualsPtr(v.NewRunEventStoreVersion, rhs.NewRunEventStoreVersion) {
-		return false
-	}
-
-	return true
-}
-
-// MarshalLogObject implements zapcore.ObjectMarshaler, enabling
-// fast logging of BufferedReplicationTaskInfo.
-func (v *BufferedReplicationTaskInfo) MarshalLogObject(enc zapcore.ObjectEncoder) (err error) {
-	if v == nil {
-		return nil
-	}
-	if v.Version != nil {
-		enc.AddInt64("version", *v.Version)
-	}
-	if v.NextEventID != nil {
-		enc.AddInt64("nextEventID", *v.NextEventID)
-	}
-	if v.History != nil {
-		enc.AddString("history", base64.StdEncoding.EncodeToString(v.History))
-	}
-	if v.HistoryEncoding != nil {
-		enc.AddString("historyEncoding", *v.HistoryEncoding)
-	}
-	if v.NewRunHistory != nil {
-		enc.AddString("newRunHistory", base64.StdEncoding.EncodeToString(v.NewRunHistory))
-	}
-	if v.NewRunHistoryEncoding != nil {
-		enc.AddString("newRunHistoryEncoding", *v.NewRunHistoryEncoding)
-	}
-	if v.EventStoreVersion != nil {
-		enc.AddInt32("eventStoreVersion", *v.EventStoreVersion)
-	}
-	if v.NewRunEventStoreVersion != nil {
-		enc.AddInt32("newRunEventStoreVersion", *v.NewRunEventStoreVersion)
-	}
-	return err
-}
-
-// GetVersion returns the value of Version if it is set or its
-// zero value if it is unset.
-func (v *BufferedReplicationTaskInfo) GetVersion() (o int64) {
-	if v != nil && v.Version != nil {
-		return *v.Version
-	}
-
-	return
-}
-
-// IsSetVersion returns true if Version is not nil.
-func (v *BufferedReplicationTaskInfo) IsSetVersion() bool {
-	return v != nil && v.Version != nil
-}
-
-// GetNextEventID returns the value of NextEventID if it is set or its
-// zero value if it is unset.
-func (v *BufferedReplicationTaskInfo) GetNextEventID() (o int64) {
-	if v != nil && v.NextEventID != nil {
-		return *v.NextEventID
-	}
-
-	return
-}
-
-// IsSetNextEventID returns true if NextEventID is not nil.
-func (v *BufferedReplicationTaskInfo) IsSetNextEventID() bool {
-	return v != nil && v.NextEventID != nil
-}
-
-// GetHistory returns the value of History if it is set or its
-// zero value if it is unset.
-func (v *BufferedReplicationTaskInfo) GetHistory() (o []byte) {
-	if v != nil && v.History != nil {
-		return v.History
-	}
-
-	return
-}
-
-// IsSetHistory returns true if History is not nil.
-func (v *BufferedReplicationTaskInfo) IsSetHistory() bool {
-	return v != nil && v.History != nil
-}
-
-// GetHistoryEncoding returns the value of HistoryEncoding if it is set or its
-// zero value if it is unset.
-func (v *BufferedReplicationTaskInfo) GetHistoryEncoding() (o string) {
-	if v != nil && v.HistoryEncoding != nil {
-		return *v.HistoryEncoding
-	}
-
-	return
-}
-
-// IsSetHistoryEncoding returns true if HistoryEncoding is not nil.
-func (v *BufferedReplicationTaskInfo) IsSetHistoryEncoding() bool {
-	return v != nil && v.HistoryEncoding != nil
-}
-
-// GetNewRunHistory returns the value of NewRunHistory if it is set or its
-// zero value if it is unset.
-func (v *BufferedReplicationTaskInfo) GetNewRunHistory() (o []byte) {
-	if v != nil && v.NewRunHistory != nil {
-		return v.NewRunHistory
-	}
-
-	return
-}
-
-// IsSetNewRunHistory returns true if NewRunHistory is not nil.
-func (v *BufferedReplicationTaskInfo) IsSetNewRunHistory() bool {
-	return v != nil && v.NewRunHistory != nil
-}
-
-// GetNewRunHistoryEncoding returns the value of NewRunHistoryEncoding if it is set or its
-// zero value if it is unset.
-func (v *BufferedReplicationTaskInfo) GetNewRunHistoryEncoding() (o string) {
-	if v != nil && v.NewRunHistoryEncoding != nil {
-		return *v.NewRunHistoryEncoding
-	}
-
-	return
-}
-
-// IsSetNewRunHistoryEncoding returns true if NewRunHistoryEncoding is not nil.
-func (v *BufferedReplicationTaskInfo) IsSetNewRunHistoryEncoding() bool {
-	return v != nil && v.NewRunHistoryEncoding != nil
-}
-
-// GetEventStoreVersion returns the value of EventStoreVersion if it is set or its
-// zero value if it is unset.
-func (v *BufferedReplicationTaskInfo) GetEventStoreVersion() (o int32) {
-	if v != nil && v.EventStoreVersion != nil {
-		return *v.EventStoreVersion
-	}
-
-	return
-}
-
-// IsSetEventStoreVersion returns true if EventStoreVersion is not nil.
-func (v *BufferedReplicationTaskInfo) IsSetEventStoreVersion() bool {
-	return v != nil && v.EventStoreVersion != nil
-}
-
-// GetNewRunEventStoreVersion returns the value of NewRunEventStoreVersion if it is set or its
-// zero value if it is unset.
-func (v *BufferedReplicationTaskInfo) GetNewRunEventStoreVersion() (o int32) {
-	if v != nil && v.NewRunEventStoreVersion != nil {
-		return *v.NewRunEventStoreVersion
-	}
-
-	return
-}
-
-// IsSetNewRunEventStoreVersion returns true if NewRunEventStoreVersion is not nil.
-func (v *BufferedReplicationTaskInfo) IsSetNewRunEventStoreVersion() bool {
-	return v != nil && v.NewRunEventStoreVersion != nil
 }
 
 type ChildExecutionInfo struct {
@@ -2440,338 +2070,59 @@ func (v *ChildExecutionInfo) IsSetWorkflowTypeName() bool {
 	return v != nil && v.WorkflowTypeName != nil
 }
 
-type CurrentExecutionInfo struct {
-	CreateRequestID  *string `json:"createRequestID,omitempty"`
-	State            *int32  `json:"state,omitempty"`
-	CloseStatus      *int32  `json:"closeStatus,omitempty"`
-	StartVersion     *int64  `json:"startVersion,omitempty"`
-	LastWriteVersion *int64  `json:"lastWriteVersion,omitempty"`
+type DomainInfo struct {
+	Name                        *string           `json:"name,omitempty"`
+	Description                 *string           `json:"description,omitempty"`
+	Owner                       *string           `json:"owner,omitempty"`
+	Status                      *int32            `json:"status,omitempty"`
+	RetentionDays               *int16            `json:"retentionDays,omitempty"`
+	EmitMetric                  *bool             `json:"emitMetric,omitempty"`
+	IsGlobalDomain              *bool             `json:"isGlobalDomain,omitempty"`
+	ArchivalBucket              *string           `json:"archivalBucket,omitempty"`
+	ArchivalStatus              *int16            `json:"archivalStatus,omitempty"`
+	ConfigVersion               *int64            `json:"configVersion,omitempty"`
+	NotificationVersion         *int64            `json:"notificationVersion,omitempty"`
+	FailoverNotificationVersion *int64            `json:"failoverNotificationVersion,omitempty"`
+	FailoverVersion             *int64            `json:"failoverVersion,omitempty"`
+	ActiveClusterName           *string           `json:"activeClusterName,omitempty"`
+	Clusters                    []string          `json:"clusters,omitempty"`
+	Data                        map[string]string `json:"data,omitempty"`
 }
 
-// ToWire translates a CurrentExecutionInfo struct into a Thrift-level intermediate
-// representation. This intermediate representation may be serialized
-// into bytes using a ThriftRW protocol implementation.
-//
-// An error is returned if the struct or any of its fields failed to
-// validate.
-//
-//   x, err := v.ToWire()
-//   if err != nil {
-//     return err
-//   }
-//
-//   if err := binaryProtocol.Encode(x, writer); err != nil {
-//     return err
-//   }
-func (v *CurrentExecutionInfo) ToWire() (wire.Value, error) {
-	var (
-		fields [5]wire.Field
-		i      int = 0
-		w      wire.Value
-		err    error
-	)
+type _Map_String_String_MapItemList map[string]string
 
-	if v.CreateRequestID != nil {
-		w, err = wire.NewValueString(*(v.CreateRequestID)), error(nil)
+func (m _Map_String_String_MapItemList) ForEach(f func(wire.MapItem) error) error {
+	for k, v := range m {
+		kw, err := wire.NewValueString(k), error(nil)
 		if err != nil {
-			return w, err
+			return err
 		}
-		fields[i] = wire.Field{ID: 10, Value: w}
-		i++
-	}
-	if v.State != nil {
-		w, err = wire.NewValueI32(*(v.State)), error(nil)
+
+		vw, err := wire.NewValueString(v), error(nil)
 		if err != nil {
-			return w, err
+			return err
 		}
-		fields[i] = wire.Field{ID: 12, Value: w}
-		i++
-	}
-	if v.CloseStatus != nil {
-		w, err = wire.NewValueI32(*(v.CloseStatus)), error(nil)
+		err = f(wire.MapItem{Key: kw, Value: vw})
 		if err != nil {
-			return w, err
-		}
-		fields[i] = wire.Field{ID: 14, Value: w}
-		i++
-	}
-	if v.StartVersion != nil {
-		w, err = wire.NewValueI64(*(v.StartVersion)), error(nil)
-		if err != nil {
-			return w, err
-		}
-		fields[i] = wire.Field{ID: 16, Value: w}
-		i++
-	}
-	if v.LastWriteVersion != nil {
-		w, err = wire.NewValueI64(*(v.LastWriteVersion)), error(nil)
-		if err != nil {
-			return w, err
-		}
-		fields[i] = wire.Field{ID: 18, Value: w}
-		i++
-	}
-
-	return wire.NewValueStruct(wire.Struct{Fields: fields[:i]}), nil
-}
-
-// FromWire deserializes a CurrentExecutionInfo struct from its Thrift-level
-// representation. The Thrift-level representation may be obtained
-// from a ThriftRW protocol implementation.
-//
-// An error is returned if we were unable to build a CurrentExecutionInfo struct
-// from the provided intermediate representation.
-//
-//   x, err := binaryProtocol.Decode(reader, wire.TStruct)
-//   if err != nil {
-//     return nil, err
-//   }
-//
-//   var v CurrentExecutionInfo
-//   if err := v.FromWire(x); err != nil {
-//     return nil, err
-//   }
-//   return &v, nil
-func (v *CurrentExecutionInfo) FromWire(w wire.Value) error {
-	var err error
-
-	for _, field := range w.GetStruct().Fields {
-		switch field.ID {
-		case 10:
-			if field.Value.Type() == wire.TBinary {
-				var x string
-				x, err = field.Value.GetString(), error(nil)
-				v.CreateRequestID = &x
-				if err != nil {
-					return err
-				}
-
-			}
-		case 12:
-			if field.Value.Type() == wire.TI32 {
-				var x int32
-				x, err = field.Value.GetI32(), error(nil)
-				v.State = &x
-				if err != nil {
-					return err
-				}
-
-			}
-		case 14:
-			if field.Value.Type() == wire.TI32 {
-				var x int32
-				x, err = field.Value.GetI32(), error(nil)
-				v.CloseStatus = &x
-				if err != nil {
-					return err
-				}
-
-			}
-		case 16:
-			if field.Value.Type() == wire.TI64 {
-				var x int64
-				x, err = field.Value.GetI64(), error(nil)
-				v.StartVersion = &x
-				if err != nil {
-					return err
-				}
-
-			}
-		case 18:
-			if field.Value.Type() == wire.TI64 {
-				var x int64
-				x, err = field.Value.GetI64(), error(nil)
-				v.LastWriteVersion = &x
-				if err != nil {
-					return err
-				}
-
-			}
+			return err
 		}
 	}
-
 	return nil
 }
 
-// String returns a readable string representation of a CurrentExecutionInfo
-// struct.
-func (v *CurrentExecutionInfo) String() string {
-	if v == nil {
-		return "<nil>"
-	}
-
-	var fields [5]string
-	i := 0
-	if v.CreateRequestID != nil {
-		fields[i] = fmt.Sprintf("CreateRequestID: %v", *(v.CreateRequestID))
-		i++
-	}
-	if v.State != nil {
-		fields[i] = fmt.Sprintf("State: %v", *(v.State))
-		i++
-	}
-	if v.CloseStatus != nil {
-		fields[i] = fmt.Sprintf("CloseStatus: %v", *(v.CloseStatus))
-		i++
-	}
-	if v.StartVersion != nil {
-		fields[i] = fmt.Sprintf("StartVersion: %v", *(v.StartVersion))
-		i++
-	}
-	if v.LastWriteVersion != nil {
-		fields[i] = fmt.Sprintf("LastWriteVersion: %v", *(v.LastWriteVersion))
-		i++
-	}
-
-	return fmt.Sprintf("CurrentExecutionInfo{%v}", strings.Join(fields[:i], ", "))
+func (m _Map_String_String_MapItemList) Size() int {
+	return len(m)
 }
 
-// Equals returns true if all the fields of this CurrentExecutionInfo match the
-// provided CurrentExecutionInfo.
-//
-// This function performs a deep comparison.
-func (v *CurrentExecutionInfo) Equals(rhs *CurrentExecutionInfo) bool {
-	if v == nil {
-		return rhs == nil
-	} else if rhs == nil {
-		return false
-	}
-	if !_String_EqualsPtr(v.CreateRequestID, rhs.CreateRequestID) {
-		return false
-	}
-	if !_I32_EqualsPtr(v.State, rhs.State) {
-		return false
-	}
-	if !_I32_EqualsPtr(v.CloseStatus, rhs.CloseStatus) {
-		return false
-	}
-	if !_I64_EqualsPtr(v.StartVersion, rhs.StartVersion) {
-		return false
-	}
-	if !_I64_EqualsPtr(v.LastWriteVersion, rhs.LastWriteVersion) {
-		return false
-	}
-
-	return true
+func (_Map_String_String_MapItemList) KeyType() wire.Type {
+	return wire.TBinary
 }
 
-// MarshalLogObject implements zapcore.ObjectMarshaler, enabling
-// fast logging of CurrentExecutionInfo.
-func (v *CurrentExecutionInfo) MarshalLogObject(enc zapcore.ObjectEncoder) (err error) {
-	if v == nil {
-		return nil
-	}
-	if v.CreateRequestID != nil {
-		enc.AddString("createRequestID", *v.CreateRequestID)
-	}
-	if v.State != nil {
-		enc.AddInt32("state", *v.State)
-	}
-	if v.CloseStatus != nil {
-		enc.AddInt32("closeStatus", *v.CloseStatus)
-	}
-	if v.StartVersion != nil {
-		enc.AddInt64("startVersion", *v.StartVersion)
-	}
-	if v.LastWriteVersion != nil {
-		enc.AddInt64("lastWriteVersion", *v.LastWriteVersion)
-	}
-	return err
+func (_Map_String_String_MapItemList) ValueType() wire.Type {
+	return wire.TBinary
 }
 
-// GetCreateRequestID returns the value of CreateRequestID if it is set or its
-// zero value if it is unset.
-func (v *CurrentExecutionInfo) GetCreateRequestID() (o string) {
-	if v != nil && v.CreateRequestID != nil {
-		return *v.CreateRequestID
-	}
-
-	return
-}
-
-// IsSetCreateRequestID returns true if CreateRequestID is not nil.
-func (v *CurrentExecutionInfo) IsSetCreateRequestID() bool {
-	return v != nil && v.CreateRequestID != nil
-}
-
-// GetState returns the value of State if it is set or its
-// zero value if it is unset.
-func (v *CurrentExecutionInfo) GetState() (o int32) {
-	if v != nil && v.State != nil {
-		return *v.State
-	}
-
-	return
-}
-
-// IsSetState returns true if State is not nil.
-func (v *CurrentExecutionInfo) IsSetState() bool {
-	return v != nil && v.State != nil
-}
-
-// GetCloseStatus returns the value of CloseStatus if it is set or its
-// zero value if it is unset.
-func (v *CurrentExecutionInfo) GetCloseStatus() (o int32) {
-	if v != nil && v.CloseStatus != nil {
-		return *v.CloseStatus
-	}
-
-	return
-}
-
-// IsSetCloseStatus returns true if CloseStatus is not nil.
-func (v *CurrentExecutionInfo) IsSetCloseStatus() bool {
-	return v != nil && v.CloseStatus != nil
-}
-
-// GetStartVersion returns the value of StartVersion if it is set or its
-// zero value if it is unset.
-func (v *CurrentExecutionInfo) GetStartVersion() (o int64) {
-	if v != nil && v.StartVersion != nil {
-		return *v.StartVersion
-	}
-
-	return
-}
-
-// IsSetStartVersion returns true if StartVersion is not nil.
-func (v *CurrentExecutionInfo) IsSetStartVersion() bool {
-	return v != nil && v.StartVersion != nil
-}
-
-// GetLastWriteVersion returns the value of LastWriteVersion if it is set or its
-// zero value if it is unset.
-func (v *CurrentExecutionInfo) GetLastWriteVersion() (o int64) {
-	if v != nil && v.LastWriteVersion != nil {
-		return *v.LastWriteVersion
-	}
-
-	return
-}
-
-// IsSetLastWriteVersion returns true if LastWriteVersion is not nil.
-func (v *CurrentExecutionInfo) IsSetLastWriteVersion() bool {
-	return v != nil && v.LastWriteVersion != nil
-}
-
-type DomainInfo struct {
-	Name                        *string `json:"name,omitempty"`
-	Description                 *string `json:"description,omitempty"`
-	Owner                       *string `json:"owner,omitempty"`
-	Status                      *int32  `json:"status,omitempty"`
-	RetentionDays               *int16  `json:"retentionDays,omitempty"`
-	EmitMetric                  *bool   `json:"emitMetric,omitempty"`
-	IsGlobalDomain              *bool   `json:"isGlobalDomain,omitempty"`
-	ArchivalBucket              *string `json:"archivalBucket,omitempty"`
-	ArchivalStatus              *int16  `json:"archivalStatus,omitempty"`
-	ConfigVersion               *int64  `json:"configVersion,omitempty"`
-	NotificationVersion         *int64  `json:"notificationVersion,omitempty"`
-	FailoverNotificationVersion *int64  `json:"failoverNotificationVersion,omitempty"`
-	FailoverVersion             *int64  `json:"failoverVersion,omitempty"`
-	ActiveClusterName           *string `json:"activeClusterName,omitempty"`
-	Clusters                    []byte  `json:"clusters,omitempty"`
-	Data                        []byte  `json:"data,omitempty"`
-}
+func (_Map_String_String_MapItemList) Close() {}
 
 // ToWire translates a DomainInfo struct into a Thrift-level intermediate
 // representation. This intermediate representation may be serialized
@@ -2909,7 +2260,7 @@ func (v *DomainInfo) ToWire() (wire.Value, error) {
 		i++
 	}
 	if v.Clusters != nil {
-		w, err = wire.NewValueBinary(v.Clusters), error(nil)
+		w, err = wire.NewValueList(_List_String_ValueList(v.Clusters)), error(nil)
 		if err != nil {
 			return w, err
 		}
@@ -2917,7 +2268,7 @@ func (v *DomainInfo) ToWire() (wire.Value, error) {
 		i++
 	}
 	if v.Data != nil {
-		w, err = wire.NewValueBinary(v.Data), error(nil)
+		w, err = wire.NewValueMap(_Map_String_String_MapItemList(v.Data)), error(nil)
 		if err != nil {
 			return w, err
 		}
@@ -2926,6 +2277,34 @@ func (v *DomainInfo) ToWire() (wire.Value, error) {
 	}
 
 	return wire.NewValueStruct(wire.Struct{Fields: fields[:i]}), nil
+}
+
+func _Map_String_String_Read(m wire.MapItemList) (map[string]string, error) {
+	if m.KeyType() != wire.TBinary {
+		return nil, nil
+	}
+
+	if m.ValueType() != wire.TBinary {
+		return nil, nil
+	}
+
+	o := make(map[string]string, m.Size())
+	err := m.ForEach(func(x wire.MapItem) error {
+		k, err := x.Key.GetString(), error(nil)
+		if err != nil {
+			return err
+		}
+
+		v, err := x.Value.GetString(), error(nil)
+		if err != nil {
+			return err
+		}
+
+		o[k] = v
+		return nil
+	})
+	m.Close()
+	return o, err
 }
 
 // FromWire deserializes a DomainInfo struct from its Thrift-level
@@ -3091,16 +2470,16 @@ func (v *DomainInfo) FromWire(w wire.Value) error {
 
 			}
 		case 38:
-			if field.Value.Type() == wire.TBinary {
-				v.Clusters, err = field.Value.GetBinary(), error(nil)
+			if field.Value.Type() == wire.TList {
+				v.Clusters, err = _List_String_Read(field.Value.GetList())
 				if err != nil {
 					return err
 				}
 
 			}
 		case 40:
-			if field.Value.Type() == wire.TBinary {
-				v.Data, err = field.Value.GetBinary(), error(nil)
+			if field.Value.Type() == wire.TMap {
+				v.Data, err = _Map_String_String_Read(field.Value.GetMap())
 				if err != nil {
 					return err
 				}
@@ -3199,6 +2578,23 @@ func _I16_EqualsPtr(lhs, rhs *int16) bool {
 	return lhs == nil && rhs == nil
 }
 
+func _Map_String_String_Equals(lhs, rhs map[string]string) bool {
+	if len(lhs) != len(rhs) {
+		return false
+	}
+
+	for lk, lv := range lhs {
+		rv, ok := rhs[lk]
+		if !ok {
+			return false
+		}
+		if !(lv == rv) {
+			return false
+		}
+	}
+	return true
+}
+
 // Equals returns true if all the fields of this DomainInfo match the
 // provided DomainInfo.
 //
@@ -3251,14 +2647,25 @@ func (v *DomainInfo) Equals(rhs *DomainInfo) bool {
 	if !_String_EqualsPtr(v.ActiveClusterName, rhs.ActiveClusterName) {
 		return false
 	}
-	if !((v.Clusters == nil && rhs.Clusters == nil) || (v.Clusters != nil && rhs.Clusters != nil && bytes.Equal(v.Clusters, rhs.Clusters))) {
+	if !((v.Clusters == nil && rhs.Clusters == nil) || (v.Clusters != nil && rhs.Clusters != nil && _List_String_Equals(v.Clusters, rhs.Clusters))) {
 		return false
 	}
-	if !((v.Data == nil && rhs.Data == nil) || (v.Data != nil && rhs.Data != nil && bytes.Equal(v.Data, rhs.Data))) {
+	if !((v.Data == nil && rhs.Data == nil) || (v.Data != nil && rhs.Data != nil && _Map_String_String_Equals(v.Data, rhs.Data))) {
 		return false
 	}
 
 	return true
+}
+
+type _Map_String_String_Zapper map[string]string
+
+// MarshalLogObject implements zapcore.ObjectMarshaler, enabling
+// fast logging of _Map_String_String_Zapper.
+func (m _Map_String_String_Zapper) MarshalLogObject(enc zapcore.ObjectEncoder) (err error) {
+	for k, v := range m {
+		enc.AddString((string)(k), v)
+	}
+	return err
 }
 
 // MarshalLogObject implements zapcore.ObjectMarshaler, enabling
@@ -3310,10 +2717,10 @@ func (v *DomainInfo) MarshalLogObject(enc zapcore.ObjectEncoder) (err error) {
 		enc.AddString("activeClusterName", *v.ActiveClusterName)
 	}
 	if v.Clusters != nil {
-		enc.AddString("clusters", base64.StdEncoding.EncodeToString(v.Clusters))
+		err = multierr.Append(err, enc.AddArray("clusters", (_List_String_Zapper)(v.Clusters)))
 	}
 	if v.Data != nil {
-		enc.AddString("data", base64.StdEncoding.EncodeToString(v.Data))
+		err = multierr.Append(err, enc.AddObject("data", (_Map_String_String_Zapper)(v.Data)))
 	}
 	return err
 }
@@ -3530,7 +2937,7 @@ func (v *DomainInfo) IsSetActiveClusterName() bool {
 
 // GetClusters returns the value of Clusters if it is set or its
 // zero value if it is unset.
-func (v *DomainInfo) GetClusters() (o []byte) {
+func (v *DomainInfo) GetClusters() (o []string) {
 	if v != nil && v.Clusters != nil {
 		return v.Clusters
 	}
@@ -3545,7 +2952,7 @@ func (v *DomainInfo) IsSetClusters() bool {
 
 // GetData returns the value of Data if it is set or its
 // zero value if it is unset.
-func (v *DomainInfo) GetData() (o []byte) {
+func (v *DomainInfo) GetData() (o map[string]string) {
 	if v != nil && v.Data != nil {
 		return v.Data
 	}
@@ -3559,11 +2966,39 @@ func (v *DomainInfo) IsSetData() bool {
 }
 
 type HistoryTreeInfo struct {
-	InProgress       *bool   `json:"inProgress,omitempty"`
-	CreatedTimeNanos *int64  `json:"createdTimeNanos,omitempty"`
-	Ancestors        []byte  `json:"ancestors,omitempty"`
-	Info             *string `json:"info,omitempty"`
+	CreatedTimeNanos *int64                       `json:"createdTimeNanos,omitempty"`
+	Ancestors        []*shared.HistoryBranchRange `json:"ancestors,omitempty"`
+	Info             *string                      `json:"info,omitempty"`
 }
+
+type _List_HistoryBranchRange_ValueList []*shared.HistoryBranchRange
+
+func (v _List_HistoryBranchRange_ValueList) ForEach(f func(wire.Value) error) error {
+	for i, x := range v {
+		if x == nil {
+			return fmt.Errorf("invalid [%v]: value is nil", i)
+		}
+		w, err := x.ToWire()
+		if err != nil {
+			return err
+		}
+		err = f(w)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (v _List_HistoryBranchRange_ValueList) Size() int {
+	return len(v)
+}
+
+func (_List_HistoryBranchRange_ValueList) ValueType() wire.Type {
+	return wire.TStruct
+}
+
+func (_List_HistoryBranchRange_ValueList) Close() {}
 
 // ToWire translates a HistoryTreeInfo struct into a Thrift-level intermediate
 // representation. This intermediate representation may be serialized
@@ -3582,34 +3017,26 @@ type HistoryTreeInfo struct {
 //   }
 func (v *HistoryTreeInfo) ToWire() (wire.Value, error) {
 	var (
-		fields [4]wire.Field
+		fields [3]wire.Field
 		i      int = 0
 		w      wire.Value
 		err    error
 	)
 
-	if v.InProgress != nil {
-		w, err = wire.NewValueBool(*(v.InProgress)), error(nil)
+	if v.CreatedTimeNanos != nil {
+		w, err = wire.NewValueI64(*(v.CreatedTimeNanos)), error(nil)
 		if err != nil {
 			return w, err
 		}
 		fields[i] = wire.Field{ID: 10, Value: w}
 		i++
 	}
-	if v.CreatedTimeNanos != nil {
-		w, err = wire.NewValueI64(*(v.CreatedTimeNanos)), error(nil)
+	if v.Ancestors != nil {
+		w, err = wire.NewValueList(_List_HistoryBranchRange_ValueList(v.Ancestors)), error(nil)
 		if err != nil {
 			return w, err
 		}
 		fields[i] = wire.Field{ID: 12, Value: w}
-		i++
-	}
-	if v.Ancestors != nil {
-		w, err = wire.NewValueBinary(v.Ancestors), error(nil)
-		if err != nil {
-			return w, err
-		}
-		fields[i] = wire.Field{ID: 14, Value: w}
 		i++
 	}
 	if v.Info != nil {
@@ -3617,11 +3044,35 @@ func (v *HistoryTreeInfo) ToWire() (wire.Value, error) {
 		if err != nil {
 			return w, err
 		}
-		fields[i] = wire.Field{ID: 16, Value: w}
+		fields[i] = wire.Field{ID: 14, Value: w}
 		i++
 	}
 
 	return wire.NewValueStruct(wire.Struct{Fields: fields[:i]}), nil
+}
+
+func _HistoryBranchRange_Read(w wire.Value) (*shared.HistoryBranchRange, error) {
+	var v shared.HistoryBranchRange
+	err := v.FromWire(w)
+	return &v, err
+}
+
+func _List_HistoryBranchRange_Read(l wire.ValueList) ([]*shared.HistoryBranchRange, error) {
+	if l.ValueType() != wire.TStruct {
+		return nil, nil
+	}
+
+	o := make([]*shared.HistoryBranchRange, 0, l.Size())
+	err := l.ForEach(func(x wire.Value) error {
+		i, err := _HistoryBranchRange_Read(x)
+		if err != nil {
+			return err
+		}
+		o = append(o, i)
+		return nil
+	})
+	l.Close()
+	return o, err
 }
 
 // FromWire deserializes a HistoryTreeInfo struct from its Thrift-level
@@ -3647,16 +3098,6 @@ func (v *HistoryTreeInfo) FromWire(w wire.Value) error {
 	for _, field := range w.GetStruct().Fields {
 		switch field.ID {
 		case 10:
-			if field.Value.Type() == wire.TBool {
-				var x bool
-				x, err = field.Value.GetBool(), error(nil)
-				v.InProgress = &x
-				if err != nil {
-					return err
-				}
-
-			}
-		case 12:
 			if field.Value.Type() == wire.TI64 {
 				var x int64
 				x, err = field.Value.GetI64(), error(nil)
@@ -3666,15 +3107,15 @@ func (v *HistoryTreeInfo) FromWire(w wire.Value) error {
 				}
 
 			}
-		case 14:
-			if field.Value.Type() == wire.TBinary {
-				v.Ancestors, err = field.Value.GetBinary(), error(nil)
+		case 12:
+			if field.Value.Type() == wire.TList {
+				v.Ancestors, err = _List_HistoryBranchRange_Read(field.Value.GetList())
 				if err != nil {
 					return err
 				}
 
 			}
-		case 16:
+		case 14:
 			if field.Value.Type() == wire.TBinary {
 				var x string
 				x, err = field.Value.GetString(), error(nil)
@@ -3697,12 +3138,8 @@ func (v *HistoryTreeInfo) String() string {
 		return "<nil>"
 	}
 
-	var fields [4]string
+	var fields [3]string
 	i := 0
-	if v.InProgress != nil {
-		fields[i] = fmt.Sprintf("InProgress: %v", *(v.InProgress))
-		i++
-	}
 	if v.CreatedTimeNanos != nil {
 		fields[i] = fmt.Sprintf("CreatedTimeNanos: %v", *(v.CreatedTimeNanos))
 		i++
@@ -3719,6 +3156,21 @@ func (v *HistoryTreeInfo) String() string {
 	return fmt.Sprintf("HistoryTreeInfo{%v}", strings.Join(fields[:i], ", "))
 }
 
+func _List_HistoryBranchRange_Equals(lhs, rhs []*shared.HistoryBranchRange) bool {
+	if len(lhs) != len(rhs) {
+		return false
+	}
+
+	for i, lv := range lhs {
+		rv := rhs[i]
+		if !lv.Equals(rv) {
+			return false
+		}
+	}
+
+	return true
+}
+
 // Equals returns true if all the fields of this HistoryTreeInfo match the
 // provided HistoryTreeInfo.
 //
@@ -3729,13 +3181,10 @@ func (v *HistoryTreeInfo) Equals(rhs *HistoryTreeInfo) bool {
 	} else if rhs == nil {
 		return false
 	}
-	if !_Bool_EqualsPtr(v.InProgress, rhs.InProgress) {
-		return false
-	}
 	if !_I64_EqualsPtr(v.CreatedTimeNanos, rhs.CreatedTimeNanos) {
 		return false
 	}
-	if !((v.Ancestors == nil && rhs.Ancestors == nil) || (v.Ancestors != nil && rhs.Ancestors != nil && bytes.Equal(v.Ancestors, rhs.Ancestors))) {
+	if !((v.Ancestors == nil && rhs.Ancestors == nil) || (v.Ancestors != nil && rhs.Ancestors != nil && _List_HistoryBranchRange_Equals(v.Ancestors, rhs.Ancestors))) {
 		return false
 	}
 	if !_String_EqualsPtr(v.Info, rhs.Info) {
@@ -3745,40 +3194,33 @@ func (v *HistoryTreeInfo) Equals(rhs *HistoryTreeInfo) bool {
 	return true
 }
 
+type _List_HistoryBranchRange_Zapper []*shared.HistoryBranchRange
+
+// MarshalLogArray implements zapcore.ArrayMarshaler, enabling
+// fast logging of _List_HistoryBranchRange_Zapper.
+func (l _List_HistoryBranchRange_Zapper) MarshalLogArray(enc zapcore.ArrayEncoder) (err error) {
+	for _, v := range l {
+		err = multierr.Append(err, enc.AppendObject(v))
+	}
+	return err
+}
+
 // MarshalLogObject implements zapcore.ObjectMarshaler, enabling
 // fast logging of HistoryTreeInfo.
 func (v *HistoryTreeInfo) MarshalLogObject(enc zapcore.ObjectEncoder) (err error) {
 	if v == nil {
 		return nil
 	}
-	if v.InProgress != nil {
-		enc.AddBool("inProgress", *v.InProgress)
-	}
 	if v.CreatedTimeNanos != nil {
 		enc.AddInt64("createdTimeNanos", *v.CreatedTimeNanos)
 	}
 	if v.Ancestors != nil {
-		enc.AddString("ancestors", base64.StdEncoding.EncodeToString(v.Ancestors))
+		err = multierr.Append(err, enc.AddArray("ancestors", (_List_HistoryBranchRange_Zapper)(v.Ancestors)))
 	}
 	if v.Info != nil {
 		enc.AddString("info", *v.Info)
 	}
 	return err
-}
-
-// GetInProgress returns the value of InProgress if it is set or its
-// zero value if it is unset.
-func (v *HistoryTreeInfo) GetInProgress() (o bool) {
-	if v != nil && v.InProgress != nil {
-		return *v.InProgress
-	}
-
-	return
-}
-
-// IsSetInProgress returns true if InProgress is not nil.
-func (v *HistoryTreeInfo) IsSetInProgress() bool {
-	return v != nil && v.InProgress != nil
 }
 
 // GetCreatedTimeNanos returns the value of CreatedTimeNanos if it is set or its
@@ -3798,7 +3240,7 @@ func (v *HistoryTreeInfo) IsSetCreatedTimeNanos() bool {
 
 // GetAncestors returns the value of Ancestors if it is set or its
 // zero value if it is unset.
-func (v *HistoryTreeInfo) GetAncestors() (o []byte) {
+func (v *HistoryTreeInfo) GetAncestors() (o []*shared.HistoryBranchRange) {
 	if v != nil && v.Ancestors != nil {
 		return v.Ancestors
 	}
@@ -3826,22 +3268,242 @@ func (v *HistoryTreeInfo) IsSetInfo() bool {
 	return v != nil && v.Info != nil
 }
 
-type ReplicationTaskInfo struct {
-	DomainID                []byte  `json:"domainID,omitempty"`
-	WorkflowID              *string `json:"workflowID,omitempty"`
-	RunID                   []byte  `json:"runID,omitempty"`
-	TaskType                *int16  `json:"taskType,omitempty"`
-	Version                 *int64  `json:"version,omitempty"`
-	FirstEventID            *int64  `json:"firstEventID,omitempty"`
-	NextEventID             *int64  `json:"nextEventID,omitempty"`
-	ScheduledID             *int64  `json:"scheduledID,omitempty"`
-	EventStoreVersion       *int32  `json:"eventStoreVersion,omitempty"`
-	NewRunEventStoreVersion *int32  `json:"newRunEventStoreVersion,omitempty"`
-	BranchToken             []byte  `json:"branch_token,omitempty"`
-	LastReplicationInfo     []byte  `json:"lastReplicationInfo,omitempty"`
-	NewRunBranchToken       []byte  `json:"newRunBranchToken,omitempty"`
-	ResetWorkflow           *bool   `json:"resetWorkflow,omitempty"`
+type ReplicationInfo struct {
+	Version     *int64 `json:"version,omitempty"`
+	LastEventID *int64 `json:"lastEventID,omitempty"`
 }
+
+// ToWire translates a ReplicationInfo struct into a Thrift-level intermediate
+// representation. This intermediate representation may be serialized
+// into bytes using a ThriftRW protocol implementation.
+//
+// An error is returned if the struct or any of its fields failed to
+// validate.
+//
+//   x, err := v.ToWire()
+//   if err != nil {
+//     return err
+//   }
+//
+//   if err := binaryProtocol.Encode(x, writer); err != nil {
+//     return err
+//   }
+func (v *ReplicationInfo) ToWire() (wire.Value, error) {
+	var (
+		fields [2]wire.Field
+		i      int = 0
+		w      wire.Value
+		err    error
+	)
+
+	if v.Version != nil {
+		w, err = wire.NewValueI64(*(v.Version)), error(nil)
+		if err != nil {
+			return w, err
+		}
+		fields[i] = wire.Field{ID: 10, Value: w}
+		i++
+	}
+	if v.LastEventID != nil {
+		w, err = wire.NewValueI64(*(v.LastEventID)), error(nil)
+		if err != nil {
+			return w, err
+		}
+		fields[i] = wire.Field{ID: 12, Value: w}
+		i++
+	}
+
+	return wire.NewValueStruct(wire.Struct{Fields: fields[:i]}), nil
+}
+
+// FromWire deserializes a ReplicationInfo struct from its Thrift-level
+// representation. The Thrift-level representation may be obtained
+// from a ThriftRW protocol implementation.
+//
+// An error is returned if we were unable to build a ReplicationInfo struct
+// from the provided intermediate representation.
+//
+//   x, err := binaryProtocol.Decode(reader, wire.TStruct)
+//   if err != nil {
+//     return nil, err
+//   }
+//
+//   var v ReplicationInfo
+//   if err := v.FromWire(x); err != nil {
+//     return nil, err
+//   }
+//   return &v, nil
+func (v *ReplicationInfo) FromWire(w wire.Value) error {
+	var err error
+
+	for _, field := range w.GetStruct().Fields {
+		switch field.ID {
+		case 10:
+			if field.Value.Type() == wire.TI64 {
+				var x int64
+				x, err = field.Value.GetI64(), error(nil)
+				v.Version = &x
+				if err != nil {
+					return err
+				}
+
+			}
+		case 12:
+			if field.Value.Type() == wire.TI64 {
+				var x int64
+				x, err = field.Value.GetI64(), error(nil)
+				v.LastEventID = &x
+				if err != nil {
+					return err
+				}
+
+			}
+		}
+	}
+
+	return nil
+}
+
+// String returns a readable string representation of a ReplicationInfo
+// struct.
+func (v *ReplicationInfo) String() string {
+	if v == nil {
+		return "<nil>"
+	}
+
+	var fields [2]string
+	i := 0
+	if v.Version != nil {
+		fields[i] = fmt.Sprintf("Version: %v", *(v.Version))
+		i++
+	}
+	if v.LastEventID != nil {
+		fields[i] = fmt.Sprintf("LastEventID: %v", *(v.LastEventID))
+		i++
+	}
+
+	return fmt.Sprintf("ReplicationInfo{%v}", strings.Join(fields[:i], ", "))
+}
+
+// Equals returns true if all the fields of this ReplicationInfo match the
+// provided ReplicationInfo.
+//
+// This function performs a deep comparison.
+func (v *ReplicationInfo) Equals(rhs *ReplicationInfo) bool {
+	if v == nil {
+		return rhs == nil
+	} else if rhs == nil {
+		return false
+	}
+	if !_I64_EqualsPtr(v.Version, rhs.Version) {
+		return false
+	}
+	if !_I64_EqualsPtr(v.LastEventID, rhs.LastEventID) {
+		return false
+	}
+
+	return true
+}
+
+// MarshalLogObject implements zapcore.ObjectMarshaler, enabling
+// fast logging of ReplicationInfo.
+func (v *ReplicationInfo) MarshalLogObject(enc zapcore.ObjectEncoder) (err error) {
+	if v == nil {
+		return nil
+	}
+	if v.Version != nil {
+		enc.AddInt64("version", *v.Version)
+	}
+	if v.LastEventID != nil {
+		enc.AddInt64("lastEventID", *v.LastEventID)
+	}
+	return err
+}
+
+// GetVersion returns the value of Version if it is set or its
+// zero value if it is unset.
+func (v *ReplicationInfo) GetVersion() (o int64) {
+	if v != nil && v.Version != nil {
+		return *v.Version
+	}
+
+	return
+}
+
+// IsSetVersion returns true if Version is not nil.
+func (v *ReplicationInfo) IsSetVersion() bool {
+	return v != nil && v.Version != nil
+}
+
+// GetLastEventID returns the value of LastEventID if it is set or its
+// zero value if it is unset.
+func (v *ReplicationInfo) GetLastEventID() (o int64) {
+	if v != nil && v.LastEventID != nil {
+		return *v.LastEventID
+	}
+
+	return
+}
+
+// IsSetLastEventID returns true if LastEventID is not nil.
+func (v *ReplicationInfo) IsSetLastEventID() bool {
+	return v != nil && v.LastEventID != nil
+}
+
+type ReplicationTaskInfo struct {
+	DomainID                []byte                      `json:"domainID,omitempty"`
+	WorkflowID              *string                     `json:"workflowID,omitempty"`
+	RunID                   []byte                      `json:"runID,omitempty"`
+	TaskType                *int16                      `json:"taskType,omitempty"`
+	Version                 *int64                      `json:"version,omitempty"`
+	FirstEventID            *int64                      `json:"firstEventID,omitempty"`
+	NextEventID             *int64                      `json:"nextEventID,omitempty"`
+	ScheduledID             *int64                      `json:"scheduledID,omitempty"`
+	EventStoreVersion       *int32                      `json:"eventStoreVersion,omitempty"`
+	NewRunEventStoreVersion *int32                      `json:"newRunEventStoreVersion,omitempty"`
+	BranchToken             []byte                      `json:"branch_token,omitempty"`
+	LastReplicationInfo     map[string]*ReplicationInfo `json:"lastReplicationInfo,omitempty"`
+	NewRunBranchToken       []byte                      `json:"newRunBranchToken,omitempty"`
+	ResetWorkflow           *bool                       `json:"resetWorkflow,omitempty"`
+}
+
+type _Map_String_ReplicationInfo_MapItemList map[string]*ReplicationInfo
+
+func (m _Map_String_ReplicationInfo_MapItemList) ForEach(f func(wire.MapItem) error) error {
+	for k, v := range m {
+		if v == nil {
+			return fmt.Errorf("invalid [%v]: value is nil", k)
+		}
+		kw, err := wire.NewValueString(k), error(nil)
+		if err != nil {
+			return err
+		}
+
+		vw, err := v.ToWire()
+		if err != nil {
+			return err
+		}
+		err = f(wire.MapItem{Key: kw, Value: vw})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (m _Map_String_ReplicationInfo_MapItemList) Size() int {
+	return len(m)
+}
+
+func (_Map_String_ReplicationInfo_MapItemList) KeyType() wire.Type {
+	return wire.TBinary
+}
+
+func (_Map_String_ReplicationInfo_MapItemList) ValueType() wire.Type {
+	return wire.TStruct
+}
+
+func (_Map_String_ReplicationInfo_MapItemList) Close() {}
 
 // ToWire translates a ReplicationTaskInfo struct into a Thrift-level intermediate
 // representation. This intermediate representation may be serialized
@@ -3955,7 +3617,7 @@ func (v *ReplicationTaskInfo) ToWire() (wire.Value, error) {
 		i++
 	}
 	if v.LastReplicationInfo != nil {
-		w, err = wire.NewValueBinary(v.LastReplicationInfo), error(nil)
+		w, err = wire.NewValueMap(_Map_String_ReplicationInfo_MapItemList(v.LastReplicationInfo)), error(nil)
 		if err != nil {
 			return w, err
 		}
@@ -3980,6 +3642,40 @@ func (v *ReplicationTaskInfo) ToWire() (wire.Value, error) {
 	}
 
 	return wire.NewValueStruct(wire.Struct{Fields: fields[:i]}), nil
+}
+
+func _ReplicationInfo_Read(w wire.Value) (*ReplicationInfo, error) {
+	var v ReplicationInfo
+	err := v.FromWire(w)
+	return &v, err
+}
+
+func _Map_String_ReplicationInfo_Read(m wire.MapItemList) (map[string]*ReplicationInfo, error) {
+	if m.KeyType() != wire.TBinary {
+		return nil, nil
+	}
+
+	if m.ValueType() != wire.TStruct {
+		return nil, nil
+	}
+
+	o := make(map[string]*ReplicationInfo, m.Size())
+	err := m.ForEach(func(x wire.MapItem) error {
+		k, err := x.Key.GetString(), error(nil)
+		if err != nil {
+			return err
+		}
+
+		v, err := _ReplicationInfo_Read(x.Value)
+		if err != nil {
+			return err
+		}
+
+		o[k] = v
+		return nil
+	})
+	m.Close()
+	return o, err
 }
 
 // FromWire deserializes a ReplicationTaskInfo struct from its Thrift-level
@@ -4109,8 +3805,8 @@ func (v *ReplicationTaskInfo) FromWire(w wire.Value) error {
 
 			}
 		case 32:
-			if field.Value.Type() == wire.TBinary {
-				v.LastReplicationInfo, err = field.Value.GetBinary(), error(nil)
+			if field.Value.Type() == wire.TMap {
+				v.LastReplicationInfo, err = _Map_String_ReplicationInfo_Read(field.Value.GetMap())
 				if err != nil {
 					return err
 				}
@@ -4209,6 +3905,23 @@ func (v *ReplicationTaskInfo) String() string {
 	return fmt.Sprintf("ReplicationTaskInfo{%v}", strings.Join(fields[:i], ", "))
 }
 
+func _Map_String_ReplicationInfo_Equals(lhs, rhs map[string]*ReplicationInfo) bool {
+	if len(lhs) != len(rhs) {
+		return false
+	}
+
+	for lk, lv := range lhs {
+		rv, ok := rhs[lk]
+		if !ok {
+			return false
+		}
+		if !lv.Equals(rv) {
+			return false
+		}
+	}
+	return true
+}
+
 // Equals returns true if all the fields of this ReplicationTaskInfo match the
 // provided ReplicationTaskInfo.
 //
@@ -4252,7 +3965,7 @@ func (v *ReplicationTaskInfo) Equals(rhs *ReplicationTaskInfo) bool {
 	if !((v.BranchToken == nil && rhs.BranchToken == nil) || (v.BranchToken != nil && rhs.BranchToken != nil && bytes.Equal(v.BranchToken, rhs.BranchToken))) {
 		return false
 	}
-	if !((v.LastReplicationInfo == nil && rhs.LastReplicationInfo == nil) || (v.LastReplicationInfo != nil && rhs.LastReplicationInfo != nil && bytes.Equal(v.LastReplicationInfo, rhs.LastReplicationInfo))) {
+	if !((v.LastReplicationInfo == nil && rhs.LastReplicationInfo == nil) || (v.LastReplicationInfo != nil && rhs.LastReplicationInfo != nil && _Map_String_ReplicationInfo_Equals(v.LastReplicationInfo, rhs.LastReplicationInfo))) {
 		return false
 	}
 	if !((v.NewRunBranchToken == nil && rhs.NewRunBranchToken == nil) || (v.NewRunBranchToken != nil && rhs.NewRunBranchToken != nil && bytes.Equal(v.NewRunBranchToken, rhs.NewRunBranchToken))) {
@@ -4263,6 +3976,17 @@ func (v *ReplicationTaskInfo) Equals(rhs *ReplicationTaskInfo) bool {
 	}
 
 	return true
+}
+
+type _Map_String_ReplicationInfo_Zapper map[string]*ReplicationInfo
+
+// MarshalLogObject implements zapcore.ObjectMarshaler, enabling
+// fast logging of _Map_String_ReplicationInfo_Zapper.
+func (m _Map_String_ReplicationInfo_Zapper) MarshalLogObject(enc zapcore.ObjectEncoder) (err error) {
+	for k, v := range m {
+		err = multierr.Append(err, enc.AddObject((string)(k), v))
+	}
+	return err
 }
 
 // MarshalLogObject implements zapcore.ObjectMarshaler, enabling
@@ -4305,7 +4029,7 @@ func (v *ReplicationTaskInfo) MarshalLogObject(enc zapcore.ObjectEncoder) (err e
 		enc.AddString("branch_token", base64.StdEncoding.EncodeToString(v.BranchToken))
 	}
 	if v.LastReplicationInfo != nil {
-		enc.AddString("lastReplicationInfo", base64.StdEncoding.EncodeToString(v.LastReplicationInfo))
+		err = multierr.Append(err, enc.AddObject("lastReplicationInfo", (_Map_String_ReplicationInfo_Zapper)(v.LastReplicationInfo)))
 	}
 	if v.NewRunBranchToken != nil {
 		enc.AddString("newRunBranchToken", base64.StdEncoding.EncodeToString(v.NewRunBranchToken))
@@ -4483,7 +4207,7 @@ func (v *ReplicationTaskInfo) IsSetBranchToken() bool {
 
 // GetLastReplicationInfo returns the value of LastReplicationInfo if it is set or its
 // zero value if it is unset.
-func (v *ReplicationTaskInfo) GetLastReplicationInfo() (o []byte) {
+func (v *ReplicationTaskInfo) GetLastReplicationInfo() (o map[string]*ReplicationInfo) {
 	if v != nil && v.LastReplicationInfo != nil {
 		return v.LastReplicationInfo
 	}
@@ -4709,16 +4433,51 @@ func (v *RequestCancelInfo) IsSetCancelRequestID() bool {
 }
 
 type ShardInfo struct {
-	StolenSinceRenew          *int32  `json:"stolenSinceRenew,omitempty"`
-	UpdatedAtNanos            *int64  `json:"updatedAtNanos,omitempty"`
-	ReplicationAckLevel       *int64  `json:"replicationAckLevel,omitempty"`
-	TransferAckLevel          *int64  `json:"transferAckLevel,omitempty"`
-	TimerAckLevelNanos        *int64  `json:"timerAckLevelNanos,omitempty"`
-	DomainNotificationVersion *int64  `json:"domainNotificationVersion,omitempty"`
-	ClusterTransferAckLevel   []byte  `json:"clusterTransferAckLevel,omitempty"`
-	ClusterTimerAckLevel      []byte  `json:"clusterTimerAckLevel,omitempty"`
-	Owner                     *string `json:"owner,omitempty"`
+	StolenSinceRenew          *int32           `json:"stolenSinceRenew,omitempty"`
+	UpdatedAtNanos            *int64           `json:"updatedAtNanos,omitempty"`
+	ReplicationAckLevel       *int64           `json:"replicationAckLevel,omitempty"`
+	TransferAckLevel          *int64           `json:"transferAckLevel,omitempty"`
+	TimerAckLevelNanos        *int64           `json:"timerAckLevelNanos,omitempty"`
+	DomainNotificationVersion *int64           `json:"domainNotificationVersion,omitempty"`
+	ClusterTransferAckLevel   map[string]int64 `json:"clusterTransferAckLevel,omitempty"`
+	ClusterTimerAckLevel      map[string]int64 `json:"clusterTimerAckLevel,omitempty"`
+	Owner                     *string          `json:"owner,omitempty"`
 }
+
+type _Map_String_I64_MapItemList map[string]int64
+
+func (m _Map_String_I64_MapItemList) ForEach(f func(wire.MapItem) error) error {
+	for k, v := range m {
+		kw, err := wire.NewValueString(k), error(nil)
+		if err != nil {
+			return err
+		}
+
+		vw, err := wire.NewValueI64(v), error(nil)
+		if err != nil {
+			return err
+		}
+		err = f(wire.MapItem{Key: kw, Value: vw})
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (m _Map_String_I64_MapItemList) Size() int {
+	return len(m)
+}
+
+func (_Map_String_I64_MapItemList) KeyType() wire.Type {
+	return wire.TBinary
+}
+
+func (_Map_String_I64_MapItemList) ValueType() wire.Type {
+	return wire.TI64
+}
+
+func (_Map_String_I64_MapItemList) Close() {}
 
 // ToWire translates a ShardInfo struct into a Thrift-level intermediate
 // representation. This intermediate representation may be serialized
@@ -4792,7 +4551,7 @@ func (v *ShardInfo) ToWire() (wire.Value, error) {
 		i++
 	}
 	if v.ClusterTransferAckLevel != nil {
-		w, err = wire.NewValueBinary(v.ClusterTransferAckLevel), error(nil)
+		w, err = wire.NewValueMap(_Map_String_I64_MapItemList(v.ClusterTransferAckLevel)), error(nil)
 		if err != nil {
 			return w, err
 		}
@@ -4800,7 +4559,7 @@ func (v *ShardInfo) ToWire() (wire.Value, error) {
 		i++
 	}
 	if v.ClusterTimerAckLevel != nil {
-		w, err = wire.NewValueBinary(v.ClusterTimerAckLevel), error(nil)
+		w, err = wire.NewValueMap(_Map_String_I64_MapItemList(v.ClusterTimerAckLevel)), error(nil)
 		if err != nil {
 			return w, err
 		}
@@ -4817,6 +4576,34 @@ func (v *ShardInfo) ToWire() (wire.Value, error) {
 	}
 
 	return wire.NewValueStruct(wire.Struct{Fields: fields[:i]}), nil
+}
+
+func _Map_String_I64_Read(m wire.MapItemList) (map[string]int64, error) {
+	if m.KeyType() != wire.TBinary {
+		return nil, nil
+	}
+
+	if m.ValueType() != wire.TI64 {
+		return nil, nil
+	}
+
+	o := make(map[string]int64, m.Size())
+	err := m.ForEach(func(x wire.MapItem) error {
+		k, err := x.Key.GetString(), error(nil)
+		if err != nil {
+			return err
+		}
+
+		v, err := x.Value.GetI64(), error(nil)
+		if err != nil {
+			return err
+		}
+
+		o[k] = v
+		return nil
+	})
+	m.Close()
+	return o, err
 }
 
 // FromWire deserializes a ShardInfo struct from its Thrift-level
@@ -4902,16 +4689,16 @@ func (v *ShardInfo) FromWire(w wire.Value) error {
 
 			}
 		case 34:
-			if field.Value.Type() == wire.TBinary {
-				v.ClusterTransferAckLevel, err = field.Value.GetBinary(), error(nil)
+			if field.Value.Type() == wire.TMap {
+				v.ClusterTransferAckLevel, err = _Map_String_I64_Read(field.Value.GetMap())
 				if err != nil {
 					return err
 				}
 
 			}
 		case 36:
-			if field.Value.Type() == wire.TBinary {
-				v.ClusterTimerAckLevel, err = field.Value.GetBinary(), error(nil)
+			if field.Value.Type() == wire.TMap {
+				v.ClusterTimerAckLevel, err = _Map_String_I64_Read(field.Value.GetMap())
 				if err != nil {
 					return err
 				}
@@ -4982,6 +4769,23 @@ func (v *ShardInfo) String() string {
 	return fmt.Sprintf("ShardInfo{%v}", strings.Join(fields[:i], ", "))
 }
 
+func _Map_String_I64_Equals(lhs, rhs map[string]int64) bool {
+	if len(lhs) != len(rhs) {
+		return false
+	}
+
+	for lk, lv := range lhs {
+		rv, ok := rhs[lk]
+		if !ok {
+			return false
+		}
+		if !(lv == rv) {
+			return false
+		}
+	}
+	return true
+}
+
 // Equals returns true if all the fields of this ShardInfo match the
 // provided ShardInfo.
 //
@@ -5010,10 +4814,10 @@ func (v *ShardInfo) Equals(rhs *ShardInfo) bool {
 	if !_I64_EqualsPtr(v.DomainNotificationVersion, rhs.DomainNotificationVersion) {
 		return false
 	}
-	if !((v.ClusterTransferAckLevel == nil && rhs.ClusterTransferAckLevel == nil) || (v.ClusterTransferAckLevel != nil && rhs.ClusterTransferAckLevel != nil && bytes.Equal(v.ClusterTransferAckLevel, rhs.ClusterTransferAckLevel))) {
+	if !((v.ClusterTransferAckLevel == nil && rhs.ClusterTransferAckLevel == nil) || (v.ClusterTransferAckLevel != nil && rhs.ClusterTransferAckLevel != nil && _Map_String_I64_Equals(v.ClusterTransferAckLevel, rhs.ClusterTransferAckLevel))) {
 		return false
 	}
-	if !((v.ClusterTimerAckLevel == nil && rhs.ClusterTimerAckLevel == nil) || (v.ClusterTimerAckLevel != nil && rhs.ClusterTimerAckLevel != nil && bytes.Equal(v.ClusterTimerAckLevel, rhs.ClusterTimerAckLevel))) {
+	if !((v.ClusterTimerAckLevel == nil && rhs.ClusterTimerAckLevel == nil) || (v.ClusterTimerAckLevel != nil && rhs.ClusterTimerAckLevel != nil && _Map_String_I64_Equals(v.ClusterTimerAckLevel, rhs.ClusterTimerAckLevel))) {
 		return false
 	}
 	if !_String_EqualsPtr(v.Owner, rhs.Owner) {
@@ -5021,6 +4825,17 @@ func (v *ShardInfo) Equals(rhs *ShardInfo) bool {
 	}
 
 	return true
+}
+
+type _Map_String_I64_Zapper map[string]int64
+
+// MarshalLogObject implements zapcore.ObjectMarshaler, enabling
+// fast logging of _Map_String_I64_Zapper.
+func (m _Map_String_I64_Zapper) MarshalLogObject(enc zapcore.ObjectEncoder) (err error) {
+	for k, v := range m {
+		enc.AddInt64((string)(k), v)
+	}
+	return err
 }
 
 // MarshalLogObject implements zapcore.ObjectMarshaler, enabling
@@ -5048,10 +4863,10 @@ func (v *ShardInfo) MarshalLogObject(enc zapcore.ObjectEncoder) (err error) {
 		enc.AddInt64("domainNotificationVersion", *v.DomainNotificationVersion)
 	}
 	if v.ClusterTransferAckLevel != nil {
-		enc.AddString("clusterTransferAckLevel", base64.StdEncoding.EncodeToString(v.ClusterTransferAckLevel))
+		err = multierr.Append(err, enc.AddObject("clusterTransferAckLevel", (_Map_String_I64_Zapper)(v.ClusterTransferAckLevel)))
 	}
 	if v.ClusterTimerAckLevel != nil {
-		enc.AddString("clusterTimerAckLevel", base64.StdEncoding.EncodeToString(v.ClusterTimerAckLevel))
+		err = multierr.Append(err, enc.AddObject("clusterTimerAckLevel", (_Map_String_I64_Zapper)(v.ClusterTimerAckLevel)))
 	}
 	if v.Owner != nil {
 		enc.AddString("owner", *v.Owner)
@@ -5151,7 +4966,7 @@ func (v *ShardInfo) IsSetDomainNotificationVersion() bool {
 
 // GetClusterTransferAckLevel returns the value of ClusterTransferAckLevel if it is set or its
 // zero value if it is unset.
-func (v *ShardInfo) GetClusterTransferAckLevel() (o []byte) {
+func (v *ShardInfo) GetClusterTransferAckLevel() (o map[string]int64) {
 	if v != nil && v.ClusterTransferAckLevel != nil {
 		return v.ClusterTransferAckLevel
 	}
@@ -5166,7 +4981,7 @@ func (v *ShardInfo) IsSetClusterTransferAckLevel() bool {
 
 // GetClusterTimerAckLevel returns the value of ClusterTimerAckLevel if it is set or its
 // zero value if it is unset.
-func (v *ShardInfo) GetClusterTimerAckLevel() (o []byte) {
+func (v *ShardInfo) GetClusterTimerAckLevel() (o map[string]int64) {
 	if v != nil && v.ClusterTimerAckLevel != nil {
 		return v.ClusterTimerAckLevel
 	}
@@ -6763,7 +6578,7 @@ type TransferTaskInfo struct {
 	TargetWorkflowID         *string `json:"targetWorkflowID,omitempty"`
 	TargetRunID              []byte  `json:"targetRunID,omitempty"`
 	TaskList                 *string `json:"taskList,omitempty"`
-	TargetChildWorkflowOnly  *int16  `json:"targetChildWorkflowOnly,omitempty"`
+	TargetChildWorkflowOnly  *bool   `json:"targetChildWorkflowOnly,omitempty"`
 	ScheduleID               *int64  `json:"scheduleID,omitempty"`
 	Version                  *int64  `json:"version,omitempty"`
 	VisibilityTimestampNanos *int64  `json:"visibilityTimestampNanos,omitempty"`
@@ -6857,7 +6672,7 @@ func (v *TransferTaskInfo) ToWire() (wire.Value, error) {
 		i++
 	}
 	if v.TargetChildWorkflowOnly != nil {
-		w, err = wire.NewValueI16(*(v.TargetChildWorkflowOnly)), error(nil)
+		w, err = wire.NewValueBool(*(v.TargetChildWorkflowOnly)), error(nil)
 		if err != nil {
 			return w, err
 		}
@@ -6987,9 +6802,9 @@ func (v *TransferTaskInfo) FromWire(w wire.Value) error {
 
 			}
 		case 26:
-			if field.Value.Type() == wire.TI16 {
-				var x int16
-				x, err = field.Value.GetI16(), error(nil)
+			if field.Value.Type() == wire.TBool {
+				var x bool
+				x, err = field.Value.GetBool(), error(nil)
 				v.TargetChildWorkflowOnly = &x
 				if err != nil {
 					return err
@@ -7127,7 +6942,7 @@ func (v *TransferTaskInfo) Equals(rhs *TransferTaskInfo) bool {
 	if !_String_EqualsPtr(v.TaskList, rhs.TaskList) {
 		return false
 	}
-	if !_I16_EqualsPtr(v.TargetChildWorkflowOnly, rhs.TargetChildWorkflowOnly) {
+	if !_Bool_EqualsPtr(v.TargetChildWorkflowOnly, rhs.TargetChildWorkflowOnly) {
 		return false
 	}
 	if !_I64_EqualsPtr(v.ScheduleID, rhs.ScheduleID) {
@@ -7174,7 +6989,7 @@ func (v *TransferTaskInfo) MarshalLogObject(enc zapcore.ObjectEncoder) (err erro
 		enc.AddString("taskList", *v.TaskList)
 	}
 	if v.TargetChildWorkflowOnly != nil {
-		enc.AddInt16("targetChildWorkflowOnly", *v.TargetChildWorkflowOnly)
+		enc.AddBool("targetChildWorkflowOnly", *v.TargetChildWorkflowOnly)
 	}
 	if v.ScheduleID != nil {
 		enc.AddInt64("scheduleID", *v.ScheduleID)
@@ -7310,7 +7125,7 @@ func (v *TransferTaskInfo) IsSetTaskList() bool {
 
 // GetTargetChildWorkflowOnly returns the value of TargetChildWorkflowOnly if it is set or its
 // zero value if it is unset.
-func (v *TransferTaskInfo) GetTargetChildWorkflowOnly() (o int16) {
+func (v *TransferTaskInfo) GetTargetChildWorkflowOnly() (o bool) {
 	if v != nil && v.TargetChildWorkflowOnly != nil {
 		return *v.TargetChildWorkflowOnly
 	}
@@ -7369,59 +7184,59 @@ func (v *TransferTaskInfo) IsSetVisibilityTimestampNanos() bool {
 }
 
 type WorkflowExecutionInfo struct {
-	ParentDomainID               []byte   `json:"parentDomainID,omitempty"`
-	ParentWorkflowID             *string  `json:"parentWorkflowID,omitempty"`
-	ParentRunID                  []byte   `json:"parentRunID,omitempty"`
-	InitiatedID                  *int64   `json:"initiatedID,omitempty"`
-	CompletionEventBatchID       *int64   `json:"completionEventBatchID,omitempty"`
-	CompletionEvent              []byte   `json:"completionEvent,omitempty"`
-	CompletionEventEncoding      *string  `json:"completionEventEncoding,omitempty"`
-	TaskList                     *string  `json:"taskList,omitempty"`
-	WorkflowTypeName             *string  `json:"workflowTypeName,omitempty"`
-	WorkflowTimeoutSeconds       *int64   `json:"workflowTimeoutSeconds,omitempty"`
-	DecisionTaskTimeoutMinutes   *int64   `json:"decisionTaskTimeoutMinutes,omitempty"`
-	ExecutionContext             []byte   `json:"executionContext,omitempty"`
-	State                        *int32   `json:"state,omitempty"`
-	CloseStatus                  *int32   `json:"closeStatus,omitempty"`
-	StartVersion                 *int64   `json:"startVersion,omitempty"`
-	CurrentVersion               *int64   `json:"currentVersion,omitempty"`
-	LastWriteVersion             *int64   `json:"lastWriteVersion,omitempty"`
-	LastWriteEventID             *int64   `json:"lastWriteEventID,omitempty"`
-	LastReplicationInfo          []byte   `json:"lastReplicationInfo,omitempty"`
-	LastEventTaskID              *int64   `json:"lastEventTaskID,omitempty"`
-	LastFirstEventID             *int64   `json:"lastFirstEventID,omitempty"`
-	LastProcessedEvent           *int64   `json:"lastProcessedEvent,omitempty"`
-	StartTimeNanos               *int64   `json:"startTimeNanos,omitempty"`
-	LastUpdatedTimeNanos         *int64   `json:"lastUpdatedTimeNanos,omitempty"`
-	DecisionVersion              *int64   `json:"decisionVersion,omitempty"`
-	DecisionScheduleID           *int64   `json:"decisionScheduleID,omitempty"`
-	DecisionStartedID            *int64   `json:"decisionStartedID,omitempty"`
-	DecisionTimeout              *int64   `json:"decisionTimeout,omitempty"`
-	DecisionAttempt              *int64   `json:"decisionAttempt,omitempty"`
-	DecisionTimestampNanos       *int64   `json:"decisionTimestampNanos,omitempty"`
-	CancelRequested              *int16   `json:"cancelRequested,omitempty"`
-	CreateRequestID              *string  `json:"createRequestID,omitempty"`
-	DecisionRequestID            *string  `json:"decisionRequestID,omitempty"`
-	CancelRequestID              *string  `json:"cancelRequestID,omitempty"`
-	StickyTaskList               *string  `json:"stickyTaskList,omitempty"`
-	StickyScheduleToStartTimeout *int64   `json:"stickyScheduleToStartTimeout,omitempty"`
-	RetryAttempt                 *int64   `json:"retryAttempt,omitempty"`
-	RetryInitialIntervalSeconds  *int32   `json:"retryInitialIntervalSeconds,omitempty"`
-	RetryMaximumIntervalSeconds  *int32   `json:"retryMaximumIntervalSeconds,omitempty"`
-	RetryMaximumAttempts         *int32   `json:"retryMaximumAttempts,omitempty"`
-	RetryExpirationSeconds       *int32   `json:"retryExpirationSeconds,omitempty"`
-	RetryBackoffCoefficient      *float64 `json:"retryBackoffCoefficient,omitempty"`
-	RetryExpirationTimeNanos     *int64   `json:"retryExpirationTimeNanos,omitempty"`
-	RetryNonRetryableErrors      []byte   `json:"retryNonRetryableErrors,omitempty"`
-	HasRetryPolicy               *bool    `json:"hasRetryPolicy,omitempty"`
-	CronSchedule                 *string  `json:"cronSchedule,omitempty"`
-	EventStoreVersion            *int32   `json:"eventStoreVersion,omitempty"`
-	EventBranchToken             []byte   `json:"eventBranchToken,omitempty"`
-	SignalCount                  *int64   `json:"signalCount,omitempty"`
-	HistorySize                  *int64   `json:"historySize,omitempty"`
-	ClientLibraryVersion         *string  `json:"clientLibraryVersion,omitempty"`
-	ClientFeatureVersion         *string  `json:"clientFeatureVersion,omitempty"`
-	ClientImpl                   *string  `json:"clientImpl,omitempty"`
+	ParentDomainID               []byte                      `json:"parentDomainID,omitempty"`
+	ParentWorkflowID             *string                     `json:"parentWorkflowID,omitempty"`
+	ParentRunID                  []byte                      `json:"parentRunID,omitempty"`
+	InitiatedID                  *int64                      `json:"initiatedID,omitempty"`
+	CompletionEventBatchID       *int64                      `json:"completionEventBatchID,omitempty"`
+	CompletionEvent              []byte                      `json:"completionEvent,omitempty"`
+	CompletionEventEncoding      *string                     `json:"completionEventEncoding,omitempty"`
+	TaskList                     *string                     `json:"taskList,omitempty"`
+	WorkflowTypeName             *string                     `json:"workflowTypeName,omitempty"`
+	WorkflowTimeoutSeconds       *int32                      `json:"workflowTimeoutSeconds,omitempty"`
+	DecisionTaskTimeoutMinutes   *int32                      `json:"decisionTaskTimeoutMinutes,omitempty"`
+	ExecutionContext             []byte                      `json:"executionContext,omitempty"`
+	State                        *int32                      `json:"state,omitempty"`
+	CloseStatus                  *int32                      `json:"closeStatus,omitempty"`
+	StartVersion                 *int64                      `json:"startVersion,omitempty"`
+	CurrentVersion               *int64                      `json:"currentVersion,omitempty"`
+	LastWriteVersion             *int64                      `json:"lastWriteVersion,omitempty"`
+	LastWriteEventID             *int64                      `json:"lastWriteEventID,omitempty"`
+	LastReplicationInfo          map[string]*ReplicationInfo `json:"lastReplicationInfo,omitempty"`
+	LastEventTaskID              *int64                      `json:"lastEventTaskID,omitempty"`
+	LastFirstEventID             *int64                      `json:"lastFirstEventID,omitempty"`
+	LastProcessedEvent           *int64                      `json:"lastProcessedEvent,omitempty"`
+	StartTimeNanos               *int64                      `json:"startTimeNanos,omitempty"`
+	LastUpdatedTimeNanos         *int64                      `json:"lastUpdatedTimeNanos,omitempty"`
+	DecisionVersion              *int64                      `json:"decisionVersion,omitempty"`
+	DecisionScheduleID           *int64                      `json:"decisionScheduleID,omitempty"`
+	DecisionStartedID            *int64                      `json:"decisionStartedID,omitempty"`
+	DecisionTimeout              *int32                      `json:"decisionTimeout,omitempty"`
+	DecisionAttempt              *int64                      `json:"decisionAttempt,omitempty"`
+	DecisionTimestampNanos       *int64                      `json:"decisionTimestampNanos,omitempty"`
+	CancelRequested              *bool                       `json:"cancelRequested,omitempty"`
+	CreateRequestID              *string                     `json:"createRequestID,omitempty"`
+	DecisionRequestID            *string                     `json:"decisionRequestID,omitempty"`
+	CancelRequestID              *string                     `json:"cancelRequestID,omitempty"`
+	StickyTaskList               *string                     `json:"stickyTaskList,omitempty"`
+	StickyScheduleToStartTimeout *int64                      `json:"stickyScheduleToStartTimeout,omitempty"`
+	RetryAttempt                 *int64                      `json:"retryAttempt,omitempty"`
+	RetryInitialIntervalSeconds  *int32                      `json:"retryInitialIntervalSeconds,omitempty"`
+	RetryMaximumIntervalSeconds  *int32                      `json:"retryMaximumIntervalSeconds,omitempty"`
+	RetryMaximumAttempts         *int32                      `json:"retryMaximumAttempts,omitempty"`
+	RetryExpirationSeconds       *int32                      `json:"retryExpirationSeconds,omitempty"`
+	RetryBackoffCoefficient      *float64                    `json:"retryBackoffCoefficient,omitempty"`
+	RetryExpirationTimeNanos     *int64                      `json:"retryExpirationTimeNanos,omitempty"`
+	RetryNonRetryableErrors      []string                    `json:"retryNonRetryableErrors,omitempty"`
+	HasRetryPolicy               *bool                       `json:"hasRetryPolicy,omitempty"`
+	CronSchedule                 *string                     `json:"cronSchedule,omitempty"`
+	EventStoreVersion            *int32                      `json:"eventStoreVersion,omitempty"`
+	EventBranchToken             []byte                      `json:"eventBranchToken,omitempty"`
+	SignalCount                  *int64                      `json:"signalCount,omitempty"`
+	HistorySize                  *int64                      `json:"historySize,omitempty"`
+	ClientLibraryVersion         *string                     `json:"clientLibraryVersion,omitempty"`
+	ClientFeatureVersion         *string                     `json:"clientFeatureVersion,omitempty"`
+	ClientImpl                   *string                     `json:"clientImpl,omitempty"`
 }
 
 // ToWire translates a WorkflowExecutionInfo struct into a Thrift-level intermediate
@@ -7520,7 +7335,7 @@ func (v *WorkflowExecutionInfo) ToWire() (wire.Value, error) {
 		i++
 	}
 	if v.WorkflowTimeoutSeconds != nil {
-		w, err = wire.NewValueI64(*(v.WorkflowTimeoutSeconds)), error(nil)
+		w, err = wire.NewValueI32(*(v.WorkflowTimeoutSeconds)), error(nil)
 		if err != nil {
 			return w, err
 		}
@@ -7528,7 +7343,7 @@ func (v *WorkflowExecutionInfo) ToWire() (wire.Value, error) {
 		i++
 	}
 	if v.DecisionTaskTimeoutMinutes != nil {
-		w, err = wire.NewValueI64(*(v.DecisionTaskTimeoutMinutes)), error(nil)
+		w, err = wire.NewValueI32(*(v.DecisionTaskTimeoutMinutes)), error(nil)
 		if err != nil {
 			return w, err
 		}
@@ -7592,7 +7407,7 @@ func (v *WorkflowExecutionInfo) ToWire() (wire.Value, error) {
 		i++
 	}
 	if v.LastReplicationInfo != nil {
-		w, err = wire.NewValueBinary(v.LastReplicationInfo), error(nil)
+		w, err = wire.NewValueMap(_Map_String_ReplicationInfo_MapItemList(v.LastReplicationInfo)), error(nil)
 		if err != nil {
 			return w, err
 		}
@@ -7664,7 +7479,7 @@ func (v *WorkflowExecutionInfo) ToWire() (wire.Value, error) {
 		i++
 	}
 	if v.DecisionTimeout != nil {
-		w, err = wire.NewValueI64(*(v.DecisionTimeout)), error(nil)
+		w, err = wire.NewValueI32(*(v.DecisionTimeout)), error(nil)
 		if err != nil {
 			return w, err
 		}
@@ -7688,7 +7503,7 @@ func (v *WorkflowExecutionInfo) ToWire() (wire.Value, error) {
 		i++
 	}
 	if v.CancelRequested != nil {
-		w, err = wire.NewValueI16(*(v.CancelRequested)), error(nil)
+		w, err = wire.NewValueBool(*(v.CancelRequested)), error(nil)
 		if err != nil {
 			return w, err
 		}
@@ -7792,7 +7607,7 @@ func (v *WorkflowExecutionInfo) ToWire() (wire.Value, error) {
 		i++
 	}
 	if v.RetryNonRetryableErrors != nil {
-		w, err = wire.NewValueBinary(v.RetryNonRetryableErrors), error(nil)
+		w, err = wire.NewValueList(_List_String_ValueList(v.RetryNonRetryableErrors)), error(nil)
 		if err != nil {
 			return w, err
 		}
@@ -7982,9 +7797,9 @@ func (v *WorkflowExecutionInfo) FromWire(w wire.Value) error {
 
 			}
 		case 28:
-			if field.Value.Type() == wire.TI64 {
-				var x int64
-				x, err = field.Value.GetI64(), error(nil)
+			if field.Value.Type() == wire.TI32 {
+				var x int32
+				x, err = field.Value.GetI32(), error(nil)
 				v.WorkflowTimeoutSeconds = &x
 				if err != nil {
 					return err
@@ -7992,9 +7807,9 @@ func (v *WorkflowExecutionInfo) FromWire(w wire.Value) error {
 
 			}
 		case 30:
-			if field.Value.Type() == wire.TI64 {
-				var x int64
-				x, err = field.Value.GetI64(), error(nil)
+			if field.Value.Type() == wire.TI32 {
+				var x int32
+				x, err = field.Value.GetI32(), error(nil)
 				v.DecisionTaskTimeoutMinutes = &x
 				if err != nil {
 					return err
@@ -8070,8 +7885,8 @@ func (v *WorkflowExecutionInfo) FromWire(w wire.Value) error {
 
 			}
 		case 46:
-			if field.Value.Type() == wire.TBinary {
-				v.LastReplicationInfo, err = field.Value.GetBinary(), error(nil)
+			if field.Value.Type() == wire.TMap {
+				v.LastReplicationInfo, err = _Map_String_ReplicationInfo_Read(field.Value.GetMap())
 				if err != nil {
 					return err
 				}
@@ -8158,9 +7973,9 @@ func (v *WorkflowExecutionInfo) FromWire(w wire.Value) error {
 
 			}
 		case 64:
-			if field.Value.Type() == wire.TI64 {
-				var x int64
-				x, err = field.Value.GetI64(), error(nil)
+			if field.Value.Type() == wire.TI32 {
+				var x int32
+				x, err = field.Value.GetI32(), error(nil)
 				v.DecisionTimeout = &x
 				if err != nil {
 					return err
@@ -8188,9 +8003,9 @@ func (v *WorkflowExecutionInfo) FromWire(w wire.Value) error {
 
 			}
 		case 70:
-			if field.Value.Type() == wire.TI16 {
-				var x int16
-				x, err = field.Value.GetI16(), error(nil)
+			if field.Value.Type() == wire.TBool {
+				var x bool
+				x, err = field.Value.GetBool(), error(nil)
 				v.CancelRequested = &x
 				if err != nil {
 					return err
@@ -8318,8 +8133,8 @@ func (v *WorkflowExecutionInfo) FromWire(w wire.Value) error {
 
 			}
 		case 96:
-			if field.Value.Type() == wire.TBinary {
-				v.RetryNonRetryableErrors, err = field.Value.GetBinary(), error(nil)
+			if field.Value.Type() == wire.TList {
+				v.RetryNonRetryableErrors, err = _List_String_Read(field.Value.GetList())
 				if err != nil {
 					return err
 				}
@@ -8681,10 +8496,10 @@ func (v *WorkflowExecutionInfo) Equals(rhs *WorkflowExecutionInfo) bool {
 	if !_String_EqualsPtr(v.WorkflowTypeName, rhs.WorkflowTypeName) {
 		return false
 	}
-	if !_I64_EqualsPtr(v.WorkflowTimeoutSeconds, rhs.WorkflowTimeoutSeconds) {
+	if !_I32_EqualsPtr(v.WorkflowTimeoutSeconds, rhs.WorkflowTimeoutSeconds) {
 		return false
 	}
-	if !_I64_EqualsPtr(v.DecisionTaskTimeoutMinutes, rhs.DecisionTaskTimeoutMinutes) {
+	if !_I32_EqualsPtr(v.DecisionTaskTimeoutMinutes, rhs.DecisionTaskTimeoutMinutes) {
 		return false
 	}
 	if !((v.ExecutionContext == nil && rhs.ExecutionContext == nil) || (v.ExecutionContext != nil && rhs.ExecutionContext != nil && bytes.Equal(v.ExecutionContext, rhs.ExecutionContext))) {
@@ -8708,7 +8523,7 @@ func (v *WorkflowExecutionInfo) Equals(rhs *WorkflowExecutionInfo) bool {
 	if !_I64_EqualsPtr(v.LastWriteEventID, rhs.LastWriteEventID) {
 		return false
 	}
-	if !((v.LastReplicationInfo == nil && rhs.LastReplicationInfo == nil) || (v.LastReplicationInfo != nil && rhs.LastReplicationInfo != nil && bytes.Equal(v.LastReplicationInfo, rhs.LastReplicationInfo))) {
+	if !((v.LastReplicationInfo == nil && rhs.LastReplicationInfo == nil) || (v.LastReplicationInfo != nil && rhs.LastReplicationInfo != nil && _Map_String_ReplicationInfo_Equals(v.LastReplicationInfo, rhs.LastReplicationInfo))) {
 		return false
 	}
 	if !_I64_EqualsPtr(v.LastEventTaskID, rhs.LastEventTaskID) {
@@ -8735,7 +8550,7 @@ func (v *WorkflowExecutionInfo) Equals(rhs *WorkflowExecutionInfo) bool {
 	if !_I64_EqualsPtr(v.DecisionStartedID, rhs.DecisionStartedID) {
 		return false
 	}
-	if !_I64_EqualsPtr(v.DecisionTimeout, rhs.DecisionTimeout) {
+	if !_I32_EqualsPtr(v.DecisionTimeout, rhs.DecisionTimeout) {
 		return false
 	}
 	if !_I64_EqualsPtr(v.DecisionAttempt, rhs.DecisionAttempt) {
@@ -8744,7 +8559,7 @@ func (v *WorkflowExecutionInfo) Equals(rhs *WorkflowExecutionInfo) bool {
 	if !_I64_EqualsPtr(v.DecisionTimestampNanos, rhs.DecisionTimestampNanos) {
 		return false
 	}
-	if !_I16_EqualsPtr(v.CancelRequested, rhs.CancelRequested) {
+	if !_Bool_EqualsPtr(v.CancelRequested, rhs.CancelRequested) {
 		return false
 	}
 	if !_String_EqualsPtr(v.CreateRequestID, rhs.CreateRequestID) {
@@ -8783,7 +8598,7 @@ func (v *WorkflowExecutionInfo) Equals(rhs *WorkflowExecutionInfo) bool {
 	if !_I64_EqualsPtr(v.RetryExpirationTimeNanos, rhs.RetryExpirationTimeNanos) {
 		return false
 	}
-	if !((v.RetryNonRetryableErrors == nil && rhs.RetryNonRetryableErrors == nil) || (v.RetryNonRetryableErrors != nil && rhs.RetryNonRetryableErrors != nil && bytes.Equal(v.RetryNonRetryableErrors, rhs.RetryNonRetryableErrors))) {
+	if !((v.RetryNonRetryableErrors == nil && rhs.RetryNonRetryableErrors == nil) || (v.RetryNonRetryableErrors != nil && rhs.RetryNonRetryableErrors != nil && _List_String_Equals(v.RetryNonRetryableErrors, rhs.RetryNonRetryableErrors))) {
 		return false
 	}
 	if !_Bool_EqualsPtr(v.HasRetryPolicy, rhs.HasRetryPolicy) {
@@ -8851,10 +8666,10 @@ func (v *WorkflowExecutionInfo) MarshalLogObject(enc zapcore.ObjectEncoder) (err
 		enc.AddString("workflowTypeName", *v.WorkflowTypeName)
 	}
 	if v.WorkflowTimeoutSeconds != nil {
-		enc.AddInt64("workflowTimeoutSeconds", *v.WorkflowTimeoutSeconds)
+		enc.AddInt32("workflowTimeoutSeconds", *v.WorkflowTimeoutSeconds)
 	}
 	if v.DecisionTaskTimeoutMinutes != nil {
-		enc.AddInt64("decisionTaskTimeoutMinutes", *v.DecisionTaskTimeoutMinutes)
+		enc.AddInt32("decisionTaskTimeoutMinutes", *v.DecisionTaskTimeoutMinutes)
 	}
 	if v.ExecutionContext != nil {
 		enc.AddString("executionContext", base64.StdEncoding.EncodeToString(v.ExecutionContext))
@@ -8878,7 +8693,7 @@ func (v *WorkflowExecutionInfo) MarshalLogObject(enc zapcore.ObjectEncoder) (err
 		enc.AddInt64("lastWriteEventID", *v.LastWriteEventID)
 	}
 	if v.LastReplicationInfo != nil {
-		enc.AddString("lastReplicationInfo", base64.StdEncoding.EncodeToString(v.LastReplicationInfo))
+		err = multierr.Append(err, enc.AddObject("lastReplicationInfo", (_Map_String_ReplicationInfo_Zapper)(v.LastReplicationInfo)))
 	}
 	if v.LastEventTaskID != nil {
 		enc.AddInt64("lastEventTaskID", *v.LastEventTaskID)
@@ -8905,7 +8720,7 @@ func (v *WorkflowExecutionInfo) MarshalLogObject(enc zapcore.ObjectEncoder) (err
 		enc.AddInt64("decisionStartedID", *v.DecisionStartedID)
 	}
 	if v.DecisionTimeout != nil {
-		enc.AddInt64("decisionTimeout", *v.DecisionTimeout)
+		enc.AddInt32("decisionTimeout", *v.DecisionTimeout)
 	}
 	if v.DecisionAttempt != nil {
 		enc.AddInt64("decisionAttempt", *v.DecisionAttempt)
@@ -8914,7 +8729,7 @@ func (v *WorkflowExecutionInfo) MarshalLogObject(enc zapcore.ObjectEncoder) (err
 		enc.AddInt64("decisionTimestampNanos", *v.DecisionTimestampNanos)
 	}
 	if v.CancelRequested != nil {
-		enc.AddInt16("cancelRequested", *v.CancelRequested)
+		enc.AddBool("cancelRequested", *v.CancelRequested)
 	}
 	if v.CreateRequestID != nil {
 		enc.AddString("createRequestID", *v.CreateRequestID)
@@ -8953,7 +8768,7 @@ func (v *WorkflowExecutionInfo) MarshalLogObject(enc zapcore.ObjectEncoder) (err
 		enc.AddInt64("retryExpirationTimeNanos", *v.RetryExpirationTimeNanos)
 	}
 	if v.RetryNonRetryableErrors != nil {
-		enc.AddString("retryNonRetryableErrors", base64.StdEncoding.EncodeToString(v.RetryNonRetryableErrors))
+		err = multierr.Append(err, enc.AddArray("retryNonRetryableErrors", (_List_String_Zapper)(v.RetryNonRetryableErrors)))
 	}
 	if v.HasRetryPolicy != nil {
 		enc.AddBool("hasRetryPolicy", *v.HasRetryPolicy)
@@ -9122,7 +8937,7 @@ func (v *WorkflowExecutionInfo) IsSetWorkflowTypeName() bool {
 
 // GetWorkflowTimeoutSeconds returns the value of WorkflowTimeoutSeconds if it is set or its
 // zero value if it is unset.
-func (v *WorkflowExecutionInfo) GetWorkflowTimeoutSeconds() (o int64) {
+func (v *WorkflowExecutionInfo) GetWorkflowTimeoutSeconds() (o int32) {
 	if v != nil && v.WorkflowTimeoutSeconds != nil {
 		return *v.WorkflowTimeoutSeconds
 	}
@@ -9137,7 +8952,7 @@ func (v *WorkflowExecutionInfo) IsSetWorkflowTimeoutSeconds() bool {
 
 // GetDecisionTaskTimeoutMinutes returns the value of DecisionTaskTimeoutMinutes if it is set or its
 // zero value if it is unset.
-func (v *WorkflowExecutionInfo) GetDecisionTaskTimeoutMinutes() (o int64) {
+func (v *WorkflowExecutionInfo) GetDecisionTaskTimeoutMinutes() (o int32) {
 	if v != nil && v.DecisionTaskTimeoutMinutes != nil {
 		return *v.DecisionTaskTimeoutMinutes
 	}
@@ -9257,7 +9072,7 @@ func (v *WorkflowExecutionInfo) IsSetLastWriteEventID() bool {
 
 // GetLastReplicationInfo returns the value of LastReplicationInfo if it is set or its
 // zero value if it is unset.
-func (v *WorkflowExecutionInfo) GetLastReplicationInfo() (o []byte) {
+func (v *WorkflowExecutionInfo) GetLastReplicationInfo() (o map[string]*ReplicationInfo) {
 	if v != nil && v.LastReplicationInfo != nil {
 		return v.LastReplicationInfo
 	}
@@ -9392,7 +9207,7 @@ func (v *WorkflowExecutionInfo) IsSetDecisionStartedID() bool {
 
 // GetDecisionTimeout returns the value of DecisionTimeout if it is set or its
 // zero value if it is unset.
-func (v *WorkflowExecutionInfo) GetDecisionTimeout() (o int64) {
+func (v *WorkflowExecutionInfo) GetDecisionTimeout() (o int32) {
 	if v != nil && v.DecisionTimeout != nil {
 		return *v.DecisionTimeout
 	}
@@ -9437,7 +9252,7 @@ func (v *WorkflowExecutionInfo) IsSetDecisionTimestampNanos() bool {
 
 // GetCancelRequested returns the value of CancelRequested if it is set or its
 // zero value if it is unset.
-func (v *WorkflowExecutionInfo) GetCancelRequested() (o int16) {
+func (v *WorkflowExecutionInfo) GetCancelRequested() (o bool) {
 	if v != nil && v.CancelRequested != nil {
 		return *v.CancelRequested
 	}
@@ -9632,7 +9447,7 @@ func (v *WorkflowExecutionInfo) IsSetRetryExpirationTimeNanos() bool {
 
 // GetRetryNonRetryableErrors returns the value of RetryNonRetryableErrors if it is set or its
 // zero value if it is unset.
-func (v *WorkflowExecutionInfo) GetRetryNonRetryableErrors() (o []byte) {
+func (v *WorkflowExecutionInfo) GetRetryNonRetryableErrors() (o []string) {
 	if v != nil && v.RetryNonRetryableErrors != nil {
 		return v.RetryNonRetryableErrors
 	}

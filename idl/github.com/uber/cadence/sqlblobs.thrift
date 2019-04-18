@@ -20,6 +20,7 @@
 
 namespace java com.uber.cadence.sqlblobs
 
+include "shared.thrift"
 
 struct ShardInfo {
 	10: optional i32 stolenSinceRenew
@@ -28,8 +29,8 @@ struct ShardInfo {
 	16: optional i64 (js.type = "Long") transferAckLevel
 	18: optional i64 (js.type = "Long") timerAckLevelNanos
 	24: optional i64 (js.type = "Long") domainNotificationVersion
-	34: optional binary clusterTransferAckLevel
-    36: optional binary clusterTimerAckLevel
+	34: optional map<string, i64> clusterTransferAckLevel
+    36: optional map<string, i64> clusterTimerAckLevel
     38: optional string owner
 }
 
@@ -48,14 +49,19 @@ struct DomainInfo {
   32: optional i64 (js.type = "Long") failoverNotificationVersion
   34: optional i64 (js.type = "Long") failoverVersion
   36: optional string activeClusterName
-  38: optional binary clusters
-  40: optional binary data
+  38: optional list<string> clusters
+  40: optional map<string, string> data
 }
 
 struct HistoryTreeInfo {
 	10: optional i64 (js.type = "Long") createdTimeNanos // For fork operation to prevent race condition of leaking event data when forking branches fail. Also can be used for clean up leaked data
-	12: optional binary ancestors
+	12: optional list<shared.HistoryBranchRange> ancestors
 	14: optional string info // For lookup back to workflow during debugging, also background cleanup when fork operation cannot finish self cleanup due to crash.
+}
+
+struct ReplicationInfo {
+    10: optional i64 (js.type = "Long") version
+    12: optional i64 (js.type = "Long") lastEventID
 }
 
 struct WorkflowExecutionInfo {
@@ -68,8 +74,8 @@ struct WorkflowExecutionInfo {
 	22: optional string completionEventEncoding
 	24: optional string taskList
 	26: optional string workflowTypeName
-	28: optional i64 (js.type = "Long") workflowTimeoutSeconds
-	30: optional i64 (js.type = "Long") decisionTaskTimeoutMinutes
+	28: optional i32 workflowTimeoutSeconds
+	30: optional i32 decisionTaskTimeoutMinutes
 	32: optional binary executionContext
 	34: optional i32 state
 	36: optional i32 closeStatus
@@ -78,7 +84,7 @@ struct WorkflowExecutionInfo {
     40: optional i64 (js.type = "Long") currentVersion
     42: optional i64 (js.type = "Long") lastWriteVersion
     44: optional i64 (js.type = "Long") lastWriteEventID
-    46: optional binary lastReplicationInfo
+    46: optional map<string, ReplicationInfo> lastReplicationInfo
 
     48: optional i64 (js.type = "Long") lastEventTaskID
 	50: optional i64 (js.type = "Long") lastFirstEventID
@@ -88,10 +94,10 @@ struct WorkflowExecutionInfo {
 	58: optional i64 (js.type = "Long") decisionVersion
 	60: optional i64 (js.type = "Long") decisionScheduleID
 	62: optional i64 (js.type = "Long") decisionStartedID
-	64: optional i64 (js.type = "Long") decisionTimeout
+	64: optional i32 decisionTimeout
 	66: optional i64 (js.type = "Long") decisionAttempt
 	68: optional i64 (js.type = "Long") decisionTimestampNanos
-	70: optional i16 cancelRequested
+	70: optional bool cancelRequested
 	72: optional string createRequestID
 	74: optional string decisionRequestID
 	76: optional string cancelRequestID
@@ -105,7 +111,7 @@ struct WorkflowExecutionInfo {
     90: optional i32 retryExpirationSeconds
     92: optional double retryBackoffCoefficient
     94: optional i64 (js.type = "Long") retryExpirationTimeNanos
-    96: optional binary retryNonRetryableErrors
+    96: optional list<string> retryNonRetryableErrors
 	98: optional bool hasRetryPolicy
 
 	100: optional string cronSchedule
@@ -133,10 +139,10 @@ struct ActivityInfo {
     26: optional i64 (js.type = "Long") startedTimeNanos
     28: optional string activityID
     30: optional string requestID
-    32: optional i64 (js.type = "Long") scheduleToStartTimeoutSeconds
-    34: optional i64 (js.type = "Long") scheduleToCloseTimeoutSeconds
-    36: optional i64 (js.type = "Long") startToCloseTimeoutSeconds
-    38: optional i64 (js.type = "Long") heartbeatTimeoutSeconds
+    32: optional i32 scheduleToStartTimeoutSeconds
+    34: optional i32 scheduleToCloseTimeoutSeconds
+    36: optional i32 startToCloseTimeoutSeconds
+    38: optional i32 heartbeatTimeoutSeconds
     40: optional bool cancelRequested
     42: optional i64 (js.type = "Long") cancelRequestID
     44: optional i32 timerTaskStatus
@@ -149,7 +155,7 @@ struct ActivityInfo {
     58: optional i32 retryMaximumAttempts
     60: optional i64 (js.type = "Long") retryExpirationTimeNanos
     62: optional double retryBackoffCoefficient
-    64: optional binary retryNonRetryableErrors
+    64: optional list<string> retryNonRetryableErrors
 }
 
 struct ChildExecutionInfo {
@@ -210,7 +216,7 @@ struct TransferTaskInfo {
     20: optional string targetWorkflowID
     22: optional binary targetRunID
     24: optional string taskList
-	26: optional i16 targetChildWorkflowOnly
+	26: optional bool targetChildWorkflowOnly
 	28: optional i64 (js.type = "Long") scheduleID
 	30: optional i64 (js.type = "Long") version
 	32: optional i64 (js.type = "Long") visibilityTimestampNanos
@@ -239,7 +245,7 @@ struct ReplicationTaskInfo {
 	26: optional i32 eventStoreVersion
     28: optional i32 newRunEventStoreVersion
 	30: optional binary branch_token
-	32: optional binary lastReplicationInfo
+	32: optional map<string, ReplicationInfo> lastReplicationInfo
 	34: optional binary newRunBranchToken
 	36: optional bool resetWorkflow
 }

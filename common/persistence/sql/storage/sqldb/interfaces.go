@@ -26,14 +26,12 @@ import (
 )
 
 type (
-	EncodingType string
-
 	// DomainRow represents a row in domain table
 	DomainRow struct {
 		ID           UUID
 		Name         string
 		Data         []byte
-		DataEncoding EncodingType
+		DataEncoding string
 	}
 
 	// DomainFilter contains the column names within domain table that
@@ -58,7 +56,7 @@ type (
 		ShardID      int64
 		RangeID      int64
 		Data         []byte
-		DataEncoding EncodingType
+		DataEncoding string
 	}
 
 	// ShardsFilter contains the column names within shards table that
@@ -72,7 +70,7 @@ type (
 		ShardID      int
 		TaskID       int64
 		Data         []byte
-		DataEncoding EncodingType
+		DataEncoding string
 	}
 
 	// TransferTasksFilter contains the column names within transfer_tasks table that
@@ -92,7 +90,7 @@ type (
 		RunID        UUID
 		NextEventID  int64
 		Data         []byte
-		DataEncoding EncodingType
+		DataEncoding string
 	}
 
 	// ExecutionsFilter contains the column names within domain table that
@@ -152,7 +150,7 @@ type (
 		TaskID       int64
 		TaskListName string
 		Data         []byte
-		DataEncoding EncodingType
+		DataEncoding string
 	}
 
 	// TasksFilter contains the column names within domain table that
@@ -177,7 +175,7 @@ type (
 		TaskType     int64
 		RangeID      int64
 		Data         []byte
-		DataEncoding EncodingType
+		DataEncoding string
 	}
 
 	// TaskListsFilter contains the column names within domain table that
@@ -199,7 +197,7 @@ type (
 		ShardID      int
 		TaskID       int64
 		Data         []byte
-		DataEncoding EncodingType
+		DataEncoding string
 	}
 
 	// ReplicationTasksFilter contains the column names within domain table that
@@ -218,7 +216,7 @@ type (
 		VisibilityTimestamp time.Time
 		TaskID              int64
 		Data                []byte
-		DataEncoding        EncodingType
+		DataEncoding        string
 	}
 
 	// TimerTasksFilter contains the column names within domain table that
@@ -288,7 +286,7 @@ type (
 		BranchID     UUID
 		InProgress   bool
 		Data         []byte
-		DataEncoding EncodingType
+		DataEncoding string
 	}
 
 	// HistoryTreeFilter contains the column names within history_tree table that
@@ -307,7 +305,7 @@ type (
 		RunID                    UUID
 		ScheduleID               int64
 		Data                     []byte
-		DataEncoding             EncodingType
+		DataEncoding             string
 		LastHeartbeatDetails     []byte
 		LastHeartbeatUpdatedTime time.Time
 	}
@@ -330,7 +328,7 @@ type (
 		RunID        UUID
 		TimerID      string
 		Data         []byte
-		DataEncoding EncodingType
+		DataEncoding string
 	}
 
 	// TimerInfoMapsFilter contains the column names within domain table that
@@ -351,7 +349,7 @@ type (
 		RunID        UUID
 		InitiatedID  int64
 		Data         []byte
-		DataEncoding EncodingType
+		DataEncoding string
 	}
 
 	// ChildExecutionInfoMapsFilter contains the column names within domain table that
@@ -372,7 +370,7 @@ type (
 		RunID        UUID
 		InitiatedID  int64
 		Data         []byte
-		DataEncoding EncodingType
+		DataEncoding string
 	}
 
 	// RequestCancelInfoMapsFilter contains the column names within domain table that
@@ -393,7 +391,7 @@ type (
 		RunID        UUID
 		InitiatedID  int64
 		Data         []byte
-		DataEncoding EncodingType
+		DataEncoding string
 	}
 
 	// SignalInfoMapsFilter contains the column names within domain table that
